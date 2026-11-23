@@ -1,0 +1,8 @@
+# Send every /api/... request to index.php
+RewriteEngine On
+
+# Make the Authorization header reach PHP on hosts that strip it (common with FastCGI).
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.php [L]
