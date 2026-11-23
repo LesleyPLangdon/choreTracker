@@ -29,7 +29,27 @@ final class DayController extends BaseController
         $stmt->execute([$ctx['kid_id']]);
         $kid = $stmt->fetch();
         $day = $this->instances->dayFor($ctx['household_id'], $ctx['kid_id']);
+        $day['notices'] = $this->notices($ctx['kid_id'], $day['today']);
         return new Response(200, ['kid' => ['id' => (int) $kid['id'], 'nickname' => $kid['nickname'], 'avatar' => $kid['avatar']]] + $day);
+    }
+
+    /**
+     * Short, neutral notes for the kid: a recent forfeited day they haven't dismissed yet, and any recent day still
+     * waiting for a parent to check.
+     */
+    private function notices(int $kidId, string $today): array
+    {
+        $since = (new \DateTimeImmutable($today))->modify('-3 days')->format('Y-m-d');
+        $stmt = $this->pdo->prepare(
+            "SELECT local_date, status FROM kid_days WHERE kid_id = ? AND local_date < ? AND local_date >= ?
+               AND ((status = 'forfeited' AND notified_at IS NULL) OR status = 'waiting') ORDER BY local_date DESC"
+        );
+        $stmt->execute([$kidId, $today, $since]);
+        $out = [];
+        foreach ($stmt->fetchAll() as $r) {
+            $out[] = ['type' => $r['status'] === 'forfeited' ? 'forfeited' : 'waiting', 'date' => $r['local_date']];
+        }
+        return $out;
     }
 
     public function kidDone(Request $r, array $p): Response

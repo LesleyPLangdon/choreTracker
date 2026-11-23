@@ -34,7 +34,7 @@ function card(chore, today) {
         h('div', { class: 'title', style: 'font-weight:700' }, chore.title),
         h('div', { class: 'muted' }, [formatValue(chore.value, chore.currency) || 'No value', schedule].join(' · ')),
         slots.length ? h('div', { class: 'muted' }, slots.join(' | ')) : null,
-        chore.auto_approve ? h('div', {}, h('span', { class: 'tag' }, 'Auto-approve')) : null),
+        h('div', {}, chore.required ? h('span', { class: 'tag req' }, 'Required') : null, chore.auto_approve ? h('span', { class: 'tag' }, 'Auto-approve') : null)),
       h('a', { class: 'btn secondary small', href: `#/chores/edit/${chore.id}` }, 'Edit')),
     h('div', { class: 'row', style: 'margin-top:8px' }, chore.kids.map((k) =>
       h('span', { class: 'tag' }, `${k.avatar} ${k.nickname}`))));

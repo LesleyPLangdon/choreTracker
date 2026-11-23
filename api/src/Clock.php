@@ -37,10 +37,11 @@ class Clock
         return $this->now()->format('Y-m-d H:i:s');
     }
 
-    /** Freeze the clock at a UTC moment (tests / simulation). Pass null to follow real time. */
+    /** Freeze the clock at a moment (tests / simulation). UTC unless the text names a zone. Null follows real time. */
     public function set(?string $utc): void
     {
-        $this->fixed = $utc === null ? null : new DateTimeImmutable($utc, new DateTimeZone('UTC'));
+        // The text may carry its own zone, e.g. '2026-12-01 23:59:00 America/New_York'; store it as UTC either way.
+        $this->fixed = $utc === null ? null : (new DateTimeImmutable($utc, new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('UTC'));
     }
 
     /** Move a frozen clock forward, e.g. advance('+16 minutes'). */

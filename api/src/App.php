@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App;
 
 use App\Chores\ChoreService;
+use App\Chores\InstanceCreator;
 use App\Chores\InstanceService;
 use App\Controllers\AccountController;
 use App\Controllers\ChoreController;
@@ -12,16 +13,22 @@ use App\Controllers\HouseholdController;
 use App\Controllers\InviteController;
 use App\Controllers\KidAuthController;
 use App\Controllers\KidController;
+use App\Controllers\RulesController;
+use App\Controllers\StatusController;
 use App\Http\ApiException;
 use App\Http\Request;
 use App\Http\Response;
 use App\Http\Router;
+use App\Rules\DayRules;
+use App\Rules\Overrides;
+use App\Rules\Settler;
 use PDO;
 
 /** Wires everything together. `handle()` turns a Request into a Response (no HTTP needed, so tests call it directly). */
 final class App
 {
     public readonly Auth $auth;
+    public readonly Settler $settler;
     private Router $router;
 
     public function __construct(public readonly PDO $pdo, public readonly Config $config, public readonly Clock $clock)
@@ -29,6 +36,14 @@ final class App
         $this->auth = new Auth($pdo, $clock);
         $this->router = new Router();
         $this->routes();
+        // Every authenticated request first settles any household days that have ended (see Settler).
+        $this->auth->onAuthenticated(function (int $householdId): void {
+            try {
+                $this->settler->settleHousehold($householdId);
+            } catch (\Throwable $e) {
+                error_log('Chore Tracker settle error: ' . $e); // never block the request itself
+            }
+        });
     }
 
     /** Builds the app from config.php, honouring `simulated_now` on test sites only. */
@@ -83,9 +98,16 @@ final class App
         $kids = new KidController(...$args);
         $kidAuth = new KidAuthController(...$args);
         $choreService = new ChoreService($this->pdo, $this->clock);
-        $instanceService = new InstanceService($this->pdo, $this->clock, new Ledger($this->pdo, $this->clock), $choreService);
+        $ledger = new Ledger($this->pdo, $this->clock);
+        $creator = new InstanceCreator($this->pdo, $this->clock, $choreService);
+        $rules = new DayRules($this->pdo, $this->clock, $ledger, $choreService);
+        $instanceService = new InstanceService($this->pdo, $this->clock, $ledger, $choreService, $creator, $rules);
+        $overrides = new Overrides($this->pdo, $this->clock, $ledger, $choreService, $creator, $instanceService, $rules);
+        $this->settler = new Settler($this->pdo, $this->clock, $choreService, $creator, $rules);
         $choreCtl = new ChoreController(...$args, ...[$choreService, $instanceService]);
         $dayCtl = new DayController(...$args, ...[$instanceService]);
+        $rulesCtl = new RulesController(...$args, ...[$overrides]);
+        $statusCtl = new StatusController(...$args);
         $r = $this->router;
 
         $r->add('POST', '/register', [$account, 'register']);
@@ -121,6 +143,16 @@ final class App
         $r->add('POST', '/instances/{id}/mark-done', [$dayCtl, 'markDone']);
         $r->add('GET', '/approvals', [$dayCtl, 'approvals']);
         $r->add('GET', '/approvals/count', [$dayCtl, 'approvalCount']);
+
+        $r->add('GET', '/clock', [$statusCtl, 'clock']);
+        $r->add('GET', '/kids/{id}/history', [$rulesCtl, 'history']);
+        $r->add('POST', '/kids/{id}/back-fill', [$rulesCtl, 'backFill']);
+        $r->add('POST', '/kids/{id}/days/{date}/unlock', [$rulesCtl, 'unlockDay']);
+        $r->add('POST', '/kids/{id}/days/{date}/forfeit', [$rulesCtl, 'forfeitDay']);
+        $r->add('POST', '/kids/{id}/adjust', [$rulesCtl, 'adjust']);
+        $r->add('POST', '/instances/{id}/undo-approval', [$rulesCtl, 'undoApproval']);
+        $r->add('POST', '/instances/{id}/clear-late', [$rulesCtl, 'clearLate']);
+        $r->add('POST', '/kid/days/{date}/ack', [$rulesCtl, 'ackNotice']);
 
         $r->add('GET', '/kid/today', [$dayCtl, 'kidToday']);
         $r->add('POST', '/kid/instances/{id}/done', [$dayCtl, 'kidDone']);

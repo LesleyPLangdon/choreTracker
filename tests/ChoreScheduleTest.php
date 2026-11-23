@@ -3,11 +3,12 @@ declare(strict_types=1);
 
 namespace Tests;
 
-use App\App;
-use App\Chores\InstanceService;
 use App\Chores\ChoreService;
+use App\Chores\InstanceCreator;
+use App\Chores\InstanceService;
 use App\Database;
 use App\Ledger;
+use App\Rules\DayRules;
 
 /** Which chores show up when: schedules, slots, one-time chores, on-demand creation, time zones. */
 final class ChoreScheduleTest extends ApiTestCase
@@ -22,6 +23,13 @@ final class ChoreScheduleTest extends ApiTestCase
         [$this->parent] = $this->registerParent();
         [$this->kidId, $link] = $this->createKid($this->parent);
         $this->kid = $this->kidToken($link);
+    }
+
+    private function instanceService(\PDO $pdo): InstanceService
+    {
+        $chores = new ChoreService($pdo, $this->clock);
+        $ledger = new Ledger($pdo, $this->clock);
+        return new InstanceService($pdo, $this->clock, $ledger, $chores, new InstanceCreator($pdo, $this->clock, $chores), new DayRules($pdo, $this->clock, $ledger, $chores));
     }
 
     public function testRepeatingChoreAppearsOnlyOnScheduledDays(): void
@@ -105,9 +113,8 @@ final class ChoreScheduleTest extends ApiTestCase
 
         // A second, independent connection and service stack (like a second request arriving at the same time).
         $other = Database::connect(test_config());
-        $chores = new ChoreService($other, $this->clock);
-        $second = new InstanceService($other, $this->clock, new Ledger($other, $this->clock), $chores);
-        $first = new InstanceService($this->pdo, $this->clock, new Ledger($this->pdo, $this->clock), new ChoreService($this->pdo, $this->clock));
+        $second = $this->instanceService($other);
+        $first = $this->instanceService($this->pdo);
         for ($n = 0; $n < 3; $n++) {
             $first->ensureToday($hid, $this->kidId);
             $second->ensureToday($hid, $this->kidId);

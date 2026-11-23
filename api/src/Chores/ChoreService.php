@@ -35,18 +35,19 @@ final class ChoreService
         $kidIds = $this->validKids($householdId, $body['kid_ids'] ?? null);
         $groupId = bin2hex(random_bytes(16));
         $now = $this->clock->nowSql();
+        $requiredFrom = $data['is_required'] ? $this->tomorrow($householdId) : null; // takes effect the next household day
 
         $this->pdo->beginTransaction();
         try {
             $ids = [];
             foreach ($kidIds as $kidId) {
                 $this->pdo->prepare(
-                    'INSERT INTO chores (household_id, kid_id, group_id, title, value, currency, is_required, schedule_type,
-                       days_of_week, due_date, overdue_behavior, auto_approve, active, created_at, updated_at)
-                     VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, 1, ?, ?)'
+                    'INSERT INTO chores (household_id, kid_id, group_id, title, value, currency, is_required, required_from,
+                       schedule_type, days_of_week, due_date, overdue_behavior, auto_approve, active, created_at, updated_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)'
                 )->execute([$householdId, $kidId, $groupId, $data['title'], $data['value'], $data['currency'],
-                    $data['schedule_type'], $data['days_of_week'], $data['due_date'], $data['overdue_behavior'],
-                    $data['auto_approve'], $now, $now]);
+                    $data['is_required'], $requiredFrom, $data['schedule_type'], $data['days_of_week'], $data['due_date'],
+                    $data['overdue_behavior'], $data['auto_approve'], $now, $now]);
                 $choreId = (int) $this->pdo->lastInsertId();
                 foreach ($data['slots'] as $i => $slot) {
                     $this->insertSlot($choreId, $slot, $i);
@@ -90,10 +91,11 @@ final class ChoreService
         }
 
         $today = $time->today();
+        $tomorrow = (new \DateTimeImmutable($today))->modify('+1 day')->format('Y-m-d');
         $this->pdo->beginTransaction();
         try {
             foreach ($targets as $target) {
-                $this->updateCopy($target, $data, $positionById, $today);
+                $this->updateCopy($target, $data, $positionById, $today, $tomorrow);
             }
             $this->pdo->commit();
         } catch (\Throwable $e) {
@@ -138,6 +140,7 @@ final class ChoreService
                     'days' => self::maskToDays((int) $c['days_of_week']),
                     'due_date' => $c['due_date'],
                     'auto_approve' => (bool) $c['auto_approve'],
+                    'required' => (bool) $c['is_required'],
                     'overdue_behavior' => $c['overdue_behavior'],
                     'slots' => array_map(fn ($s) => [
                         'id' => (int) $s['id'], 'label' => $s['label'],
@@ -169,6 +172,19 @@ final class ChoreService
     }
 
     // ---------------------------------------------------------------------------------------------
+
+    /** The household day after the current one, 'Y-m-d'. */
+    private function tomorrow(int $householdId): string
+    {
+        return (new \DateTimeImmutable($this->householdTime($householdId)->today()))->modify('+1 day')->format('Y-m-d');
+    }
+
+    /** Kid ids of every active copy in this chore's group (to make sure their today lists exist before an edit). */
+    public function kidIdsInGroup(int $householdId, int $choreId): array
+    {
+        $chore = $this->find($householdId, $choreId);
+        return array_map(fn ($c) => (int) $c['kid_id'], $this->copies($householdId, $chore['group_id']));
+    }
 
     private function find(int $householdId, int $choreId): array
     {
@@ -221,20 +237,25 @@ final class ChoreService
 
     private function insertSlot(int $choreId, array $slot, int $order): int
     {
-        $this->pdo->prepare('INSERT INTO chore_slots (chore_id, label, sort_order, available_from, due_by, active) VALUES (?, ?, ?, ?, ?, 1)')
-            ->execute([$choreId, $slot['label'], $order, $slot['available_from'], $slot['due_by']]);
+        $this->pdo->prepare('INSERT INTO chore_slots (chore_id, label, sort_order, available_from, due_by, active, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)')
+            ->execute([$choreId, $slot['label'], $order, $slot['available_from'], $slot['due_by'], $this->clock->nowSql()]);
         return (int) $this->pdo->lastInsertId();
     }
 
-    private function updateCopy(array $chore, array $data, array $positionById, string $today): void
+    private function updateCopy(array $chore, array $data, array $positionById, string $today, string $tomorrow): void
     {
         $choreId = (int) $chore['id'];
         $now = $this->clock->nowSql();
+        // Becoming required (or required for the first time) starts tomorrow; instances already made for today
+        // keep what they had, so a day that has unlocked never re-locks from a mid-day edit.
+        $requiredFrom = $data['is_required']
+            ? ((int) $chore['is_required'] === 1 ? $chore['required_from'] : $tomorrow)
+            : null;
         $this->pdo->prepare(
             'UPDATE chores SET title = ?, value = ?, currency = ?, days_of_week = ?, due_date = ?, overdue_behavior = ?,
-               auto_approve = ?, updated_at = ? WHERE id = ?'
+               auto_approve = ?, is_required = ?, required_from = ?, updated_at = ? WHERE id = ?'
         )->execute([$data['title'], $data['value'], $data['currency'], $data['days_of_week'], $data['due_date'],
-            $data['overdue_behavior'], $data['auto_approve'], $now, $choreId]);
+            $data['overdue_behavior'], $data['auto_approve'], $data['is_required'], $requiredFrom, $now, $choreId]);
 
         // Slots: update the ones that were kept, add new ones, deactivate the ones that were dropped.
         $existing = $this->activeSlots($choreId);
@@ -255,7 +276,7 @@ final class ChoreService
         $oneOff = $chore['schedule_type'] === 'one_off';
         foreach ($existing as $slot) {
             if (!isset($kept[(int) $slot['id']])) {
-                $this->pdo->prepare('UPDATE chore_slots SET active = 0 WHERE id = ?')->execute([$slot['id']]);
+                $this->pdo->prepare('UPDATE chore_slots SET active = 0, deactivated_at = ? WHERE id = ?')->execute([$now, $slot['id']]);
                 $this->deleteUntouched($choreId, (int) $slot['id'], $oneOff, $today);
             }
         }

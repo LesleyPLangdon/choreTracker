@@ -27,7 +27,7 @@ Conventions
 | `kids` | Profiles, not accounts — **no PII**: `nickname`, `avatar` (emoji), `pin_hash`, `link_token_hash`, `failed_pin_attempts`, `locked_until`, `active`. |
 | `auth_tokens` | Bearer tokens for parents and kids: `token_hash`, `type` (`parent`/`kid`), `expires_at`, `revoked`, `last_used_at`. |
 
-### Chores (`002`, `005`) — Phase 2 (flow) / Phase 3 (rules)
+### Chores (`002`, `005`, `006`) — Phase 2 (flow) / Phase 3 (rules)
 | Table | Purpose |
 |---|---|
 | `chores` | **One row per kid.** Assigning one chore to several kids creates copies that share a `group_id`. `value` (nullable), `currency` (`points`/`money`, NULL when no value), `is_required`, `schedule_type` (`daily`/`one_off`), `days_of_week`, `due_date`, `overdue_behavior` (`expire`/`carry_over`), `auto_approve`, `active`. |
@@ -135,3 +135,51 @@ currency. Nothing leaves `pending` yet (unlocking is Phase 3, buckets Phase 4).
 deleted) but never touches an instance that is `reported_done` or `approved`, or any past day. A group edit changes all
 copies unless one kid is chosen. A chore can't be switched between repeating and one time. "Remove" sets `chores.active = 0`
 and deletes today's untouched to-dos; history is kept. There are no hard deletes of chores.
+
+## Rules (Phase 3, migration `006`)
+
+**New columns/tables:** `households.settled_through` (last fully settled household day), `chores.required_from`,
+`chore_instances.required_for_date`, `chore_slots.created_at` / `deactivated_at`, `kid_days.status` gains `waiting`,
+`kid_days.notified_at`, and the `day_events` table (who did each back-fill/override, and when).
+
+**Required chores.** `chores.is_required` makes *every slot* of the chore required. A new or newly-required chore starts
+counting the **next household day** (`required_from` = tomorrow), so an unlocked day never re-locks from a mid-day edit.
+Each instance records the day it gates in `required_for_date` (NULL = not required): its own day for repeating chores;
+for a required one-time chore, its due date (or creation day if none) but never before `required_from`. A day's
+**required slots** are the instances whose `required_for_date` is that day.
+
+**Two questions, kept separate.**
+1. *Did the kid do the required chores?* "Reported" (`reported_done` or `approved`) counts, even if late. Decides forfeiting.
+2. *When does the money move?* When **every required slot of the day is `approved`**: the day's `pending` earnings move to `spending`.
+
+**Day status (`kid_days.status`)**, computed by `DayRules::computeStatus` from the required slots:
+no required slots, or all approved → `unlocked`; during the day otherwise → `locked`; after the day ended: any required
+slot not reported (`assigned`/`sent_back`/`missed`) → `forfeited`; all reported but some not approved → `waiting`.
+Automatic rules: an `unlocked` day stays unlocked; a `forfeited` day stays forfeited unless a back-fill re-settles it;
+a parent's manual unlock/forfeit (`override_by_parent_id` set) is never changed automatically.
+
+**Ledger entries** (all appended, all tagged with the earning day in `local_date`, none edited):
+`earning` (pending, +) · `unlock` (pending −, spending +; the one place a Savings/Giving split will go in Phase 4) ·
+`forfeit` (pending −; a later reversal is a `forfeit` +) · undoing an approval is an `earning` − in whichever bucket
+the money now sits · `parent_adjustment` (spending ±, with a note). Every move is computed from the day's current
+ledger sums, so repeating it (or two requests at once) never moves money twice. The earning day is the household day the
+chore was **reported** (a back-filled chore: the day filled in), so overdue chores earn on the day they're finished.
+
+**Settlement** (`Rules\Settler`): any authenticated request first settles every household day from `settled_through`+1
+up to yesterday (never before the household existed; at most 366 days back), oldest first, one day per transaction, with
+the household row locked so two requests can't both do the work. For each active kid and day: create the instances
+that belonged on that day (only for chores and slots that existed then — `chores.created_at`, `chore_slots.created_at`),
+close out undone chores, then reconcile the day.
+- Repeating chores undone at end of day: **expire** → `missed`; **carry over** → stays as the one overdue copy for that
+  slot (older undone copies of the slot become `missed`, so they never stack).
+- One-time chores set to expire become `missed` once their due date (or creation day) has passed; carry-over ones stay
+  as a single overdue instance.
+- `scripts/settle.php` runs the same code for every household (for an optional cron job).
+
+**Overrides** (`Rules\Overrides`, up to 7 days back; each logs a `day_events` row): back-fill (creates the instance if
+needed, approves it with `is_back_filled`, writes its earning, re-settles the day — this is how a forfeited day recovers),
+unlock a forfeited/waiting day, forfeit a day (an unlocked day's money comes back out of Spending, refused if already
+spent), undo an approval (refused if the money was already spent), clear a late flag. **Balance adjustments**
+(`parent_adjustment`, any time, note required) can't take Spending below zero.
+A back-filled instance's `reported_at` is the moment the parent recorded it.
+

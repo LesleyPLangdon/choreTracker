@@ -1,7 +1,7 @@
 // Hash-based router. Each screen is a module in screens/ that exports render(root, params).
-import { session } from './api.js';
+import { api, session } from './api.js';
 import { refreshBadge } from './layout.js';
-import { h, mount } from './ui.js';
+import { h, mount, formatSqlMoment } from './ui.js';
 import * as login from './screens/login.js';
 import * as register from './screens/register.js';
 import * as join from './screens/join.js';
@@ -11,6 +11,7 @@ import * as settings from './screens/settings.js';
 import * as chores from './screens/chores.js';
 import * as choreForm from './screens/chore-form.js';
 import * as kidDay from './screens/kid-day.js';
+import * as historyScreen from './screens/history.js';
 import * as kidPin from './screens/kid-pin.js';
 import * as kidHome from './screens/kid-home.js';
 
@@ -26,6 +27,7 @@ const routes = [
   [/^\/chores\/new$/, choreForm, 'parent'],
   [/^\/chores\/edit\/(\d+)$/, choreForm, 'parent'],
   [/^\/day\/(\d+)$/, kidDay, 'parent'],
+  [/^\/history\/(\d+)$/, historyScreen, 'parent'],
   [/^\/k\/([^/]+)$/, kidPin, null],
   [/^\/kid$/, kidHome, 'kid'],
 ];
@@ -66,6 +68,7 @@ async function route() {
     const params = match.slice(1).map(decodeURIComponent);
     mount(root, h('p', { class: 'loading' }, 'Loading…'));
     refreshScreen = null;
+    updateBanner();
     try {
       const result = await screen.render(root, ...params);
       refreshScreen = typeof result === 'function' ? result : null;
@@ -79,8 +82,37 @@ async function route() {
   mount(root, h('div', { class: 'card' }, h('h2', {}, 'Page not found'), h('a', { class: 'btn', href: '#/' }, 'Go home')));
 }
 
+// "Simulated time" banner (test site only). The time comes from the API's clock, never from this device.
+async function updateBanner() {
+  const banner = document.getElementById('sim-banner');
+  try {
+    const as = session.parentToken() ? 'parent' : session.kidToken() ? 'kid' : 'none';
+    const clock = await api('GET', '/clock', undefined, { as });
+    if (clock.simulated) {
+      banner.textContent = clock.local
+        ? `Simulated time: ${formatSqlMoment(clock.local)}`
+        : `Simulated time: ${formatSqlMoment(clock.utc)} (UTC)`;
+      banner.hidden = false;
+    } else {
+      banner.hidden = true;
+    }
+  } catch { /* leave the banner as it was */ }
+}
+
+// Keep the banner current whenever the app talks to the server (at most every few seconds).
+let lastBanner = 0;
+let bannerTimer = null;
+window.addEventListener('ct:api-activity', () => {
+  const wait = 3000 - (Date.now() - lastBanner);
+  if (wait <= 0) { lastBanner = Date.now(); updateBanner(); return; }
+  if (!bannerTimer) { // catch up shortly after, so the banner is never left stale
+    bannerTimer = setTimeout(() => { bannerTimer = null; lastBanner = Date.now(); updateBanner(); }, wait + 50);
+  }
+});
+
 function refreshNow() {
   if (document.hidden) return;
+  updateBanner();
   if (refreshScreen) Promise.resolve(refreshScreen()).catch(() => { /* keep showing what we have */ });
   else if (session.parentToken() && currentPath() !== '/login') refreshBadge();
 }
