@@ -14,7 +14,16 @@ final class Auth
     public const PARENT_TTL = '+30 days';
     public const KID_TTL = '+90 days';
 
+    /** @var (callable(int):void)|null runs after every successful sign-in check, with the household id */
+    private $afterAuthenticate = null;
+
     public function __construct(private PDO $pdo, private Clock $clock) {}
+
+    /** Register a callback for every authenticated request (used to settle ended days on demand). */
+    public function onAuthenticated(callable $callback): void
+    {
+        $this->afterAuthenticate = $callback;
+    }
 
     /** @return string the plaintext token (shown to the client once) */
     public function issue(string $type, int $householdId, ?int $parentId, ?int $kidId): string
@@ -59,6 +68,9 @@ final class Auth
         }
         $this->pdo->prepare('UPDATE auth_tokens SET last_used_at = ? WHERE id = ?')
             ->execute([$this->clock->nowSql(), $row['id']]);
+        if ($this->afterAuthenticate !== null) {
+            ($this->afterAuthenticate)((int) $row['household_id']);
+        }
         return [
             'token_id' => (int) $row['id'],
             'household_id' => (int) $row['household_id'],

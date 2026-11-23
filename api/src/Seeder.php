@@ -75,8 +75,8 @@ final class Seeder
         $sunday = (new \DateTimeImmutable($today))->modify("+$untilSunday days")->format('Y-m-d');
 
         $demo = [
-            ['title' => 'Make bed', 'value' => 10, 'currency' => 'points'],
-            ['title' => 'Brush teeth', 'slots' => [
+            ['title' => 'Make bed', 'value' => 10, 'currency' => 'points', 'required' => true],
+            ['title' => 'Brush teeth', 'required' => true, 'slots' => [
                 ['label' => 'Morning', 'due_by' => '08:00'],
                 ['label' => 'Evening', 'available_from' => '18:00'],
             ]],

@@ -16,7 +16,7 @@ final class ChoreInput
 
     /**
      * @return array{title:string, value:?int, currency:?string, schedule_type:string, days_of_week:int,
-     *               due_date:?string, auto_approve:int, overdue_behavior:string,
+     *               due_date:?string, auto_approve:int, is_required:int, overdue_behavior:string,
      *               slots:list<array{id:?int,label:string,available_from:?string,due_by:?string}>}
      */
     public static function clean(array $in, HouseholdTime $time): array
@@ -82,6 +82,7 @@ final class ChoreInput
             'days_of_week' => $mask,
             'due_date' => $dueDate,
             'auto_approve' => ($in['auto_approve'] ?? false) === true ? 1 : 0,
+            'is_required' => ($in['required'] ?? false) === true ? 1 : 0,
             'overdue_behavior' => $overdue,
             'slots' => self::slots($in['slots'] ?? null, $time),
         ];

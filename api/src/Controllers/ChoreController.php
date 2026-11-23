@@ -44,6 +44,11 @@ final class ChoreController extends BaseController
     public function update(Request $r, array $p): Response
     {
         $ctx = $this->parent($r);
+        // Today's instances must exist (with their current required/value details) before the edit, so that a
+        // change to "required" only starts tomorrow and today's day is never re-locked.
+        foreach ($this->chores->kidIdsInGroup($ctx['household_id'], (int) $p['id']) as $kidId) {
+            $this->instances->ensureToday($ctx['household_id'], $kidId);
+        }
         $this->chores->update($ctx['household_id'], (int) $p['id'], $r->body, $this->applyTo($r));
         return new Response(200, ['ok' => true]);
     }

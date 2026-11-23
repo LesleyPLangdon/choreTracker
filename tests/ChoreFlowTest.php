@@ -232,7 +232,10 @@ final class ChoreFlowTest extends ApiTestCase
         $this->assertSame($id, (int) $e[0]['chore_instance_id']);
         $this->assertSame('2026-12-01', $e[0]['local_date']);
         $this->assertSame('parent', $e[0]['created_by_type']);
-        $this->assertSame(10, (new Ledger($this->pdo, $this->clock))->balance($this->kidId, 'points', 'pending'));
+        // No required chores on this day, so the earning moved straight on to Spending (Phase 3).
+        $ledger = new Ledger($this->pdo, $this->clock);
+        $this->assertSame(0, $ledger->balance($this->kidId, 'points', 'pending'));
+        $this->assertSame(10, $ledger->balance($this->kidId, 'points', 'spending'));
     }
 
     public function testMoneyIsRecordedInCents(): void
@@ -241,8 +244,8 @@ final class ChoreFlowTest extends ApiTestCase
         $id = $this->onlyRow()['id'];
         $this->done($id);
         $this->approve($id);
-        $this->assertSame(50, (new Ledger($this->pdo, $this->clock))->balance($this->kidId, 'money', 'pending'));
-        $this->assertSame(0, (new Ledger($this->pdo, $this->clock))->balance($this->kidId, 'points', 'pending'));
+        $this->assertSame(50, (new Ledger($this->pdo, $this->clock))->balance($this->kidId, 'money', 'spending'));
+        $this->assertSame(0, (new Ledger($this->pdo, $this->clock))->balance($this->kidId, 'points', 'spending'));
         $day = $this->kidList($this->kid);
         $this->assertSame(['points' => 0, 'money' => 50], $day['earned_today']);
     }
@@ -336,7 +339,7 @@ final class ChoreFlowTest extends ApiTestCase
         $this->assertSame(['10', 'points', 'approved'], [(string) $approved['value'], $approved['currency'], $approved['status']]);
         $untouched = $this->pdo->query("SELECT value, currency FROM chore_instances WHERE id = $evening")->fetch();
         $this->assertSame(['99', 'money'], [(string) $untouched['value'], $untouched['currency']], "today's untouched to-do picks up the change");
-        $this->assertSame(10, (new Ledger($this->pdo, $this->clock))->balance($this->kidId, 'points', 'pending'));
+        $this->assertSame(10, (new Ledger($this->pdo, $this->clock))->balance($this->kidId, 'points', 'spending'));
 
         // A reported-but-unapproved instance keeps its details too.
         $this->done($evening);
@@ -433,7 +436,7 @@ final class ChoreFlowTest extends ApiTestCase
         $this->assertSame(2, $this->countRows('SELECT COUNT(*) FROM chores'), 'rows kept');
         $this->assertSame(0, $this->countRows('SELECT COUNT(*) FROM chores WHERE active = 1'));
         $this->assertSame(['Bed'], $this->titles($this->kidList($this->kid)), 'approved history stays visible today; the untouched to-do is gone');
-        $this->assertSame(1, $this->countRows('SELECT COUNT(*) FROM ledger_entries'));
+        $this->assertSame(1, $this->countRows("SELECT COUNT(*) FROM ledger_entries WHERE entry_type = 'earning'"));
         $this->assertSame([], $this->call('GET', '/chores', [], $this->parent)[1]['chores']);
     }
 
