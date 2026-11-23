@@ -126,11 +126,21 @@
 - Completing the required chore(s) **unlocks** them. **A late required chore still unlocks the day** — forfeiting is for chores that never got done.
 - If the day ends with a required chore undone, that day's earnings are **forfeited** (unless a parent overrides).
 - **End of day:** midnight in the household's time zone by default, adjustable per household.
+- **Phase 3 rules (decided Nov 23):**
+  - **Every slot** of a required chore is required (required brush teeth = morning and evening).
+  - **Reported counts against forfeit; approval moves the money.** If every required chore was reported by end of day, the day isn't forfeited. Earnings move from pending to Spending when every required chore is **approved**. If a required chore is reported but not yet approved when the day ends, the day **waits on a parent**: approving unlocks it; sending it back after the day ended forfeits it (overridable).
+  - A **required one-time chore** only gates its due date (or its creation day if there's no due date).
+  - Making a chore required, or adding a required chore, **takes effect the next day**; an unlocked day never re-locks from a mid-day edit.
+  - A **day with no required chores** is unlocked from the start; earnings go to Spending as they're approved.
+  - **Days nobody opened** are settled the next time anyone opens the app (no cron needed; an optional settle script exists for a cPanel cron later).
+  - **Back-fill and day overrides reach up to 7 days back.** Balance adjustments can happen any time but can't take Spending below zero.
+  - The test site's **simulated time** lets Lesley test end-of-day rules without waiting for midnight.
 
 ## 9. Overdue behavior
 - Per-chore setting: **Expires** (drops off after its due day) or **Carries over** (stays, listed as overdue).
 - Defaults: daily chores expire; one-off chores carry over.
-- **No stacking:** a carry-over chore shows once as overdue, never as multiple copies (avoids "three overdue morning tooth-brushings").
+- **No stacking:** a carry-over chore shows once as overdue, never as multiple copies (avoids "three overdue morning tooth-brushings"). Only the most recent undone instance carries over; older ones become missed.
+- Completing an overdue chore earns on the day it's reported.
 - Expired chores leave the kid's view but stay in the parent's history as **missed**.
 - Parents can **back-fill** past days ("it was done, we just didn't tap it"); back-filling a required chore unlocks that day's earnings.
 
@@ -160,5 +170,5 @@
 ## Open / next up
 - **Name:** not yet. Lesley thinks the difference is the combination of features; revisit once the family has used it.
 - **Phase 1:** built, deployed to the Bluehost test site, and tested (Nov 23).
-- **Phase 2:** built (branch `claude/elegant-franklin-157mwi`, Nov 23). Next: merge into `main`, deploy to the test site, run the migration and reset, and test with the family.
-- **For Phase 3:** end-of-day rules must handle **days when nobody opened the app** (no instances were created), so required chores and forfeits are settled correctly when the app is next opened.
+- **Phase 2:** built, merged, and deployed to the test site (Nov 23).
+- **Phase 3:** prompt written (`docs/prompts/phase-3.md`). Next: run it in Claude Code, merge, deploy, and test with simulated time and the family.
