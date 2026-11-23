@@ -77,5 +77,7 @@ revive a forfeited day (back-fill or an override does); manual unlock/forfeit ov
 the approvals list aren't counted in the badge; history shows today + the previous 7 days (never before the household
 existed); back-fill sets `reported_at` to when the parent recorded it; balance adjustments require a note; the forfeit
 note has an OK button; a day that already unlocked stays unlocked even if an approval is later undone.
-Not done / ideas: a settle that fails is logged and skipped (the request still works) rather than failing the request.
+A settle that fails is logged and skipped (the request still works). It sets `households.settle_failed_at` (migration `007`), so
+parents see "Some past days couldn't be updated — tell Lesley" on Home until a later settle succeeds (tested in `SettleWarningTest`).
+**The test site also needs migration 007** (`php scripts/migrate.php`).
 Next: Phase 4 (Money flow) — buckets, Spending purchases, goals, rewards, challenges.

@@ -6,6 +6,7 @@ import { approvalButtons } from '../chore-parts.js';
 export async function render(root) {
   const me = await api('GET', '/me', undefined, { as: 'parent' });
   const error = errorBox();
+  const warningBox = h('div', { class: 'error', role: 'alert', hidden: true }, 'Some past days couldn\'t be updated — tell Lesley');
   const approvalsBox = h('div', { class: 'card' });
   const kidsBox = h('div', { class: 'card' });
   const refreshButton = h('button', { class: 'secondary small', onclick: () => load() }, 'Refresh');
@@ -16,6 +17,7 @@ export async function render(root) {
       api('GET', '/approvals', undefined, { as: 'parent' }),
       api('GET', '/kids', undefined, { as: 'parent' }),
     ]);
+    warningBox.hidden = !approvals.settle_failed; // shown until a later settle succeeds
     paintApprovals(approvals);
     paintKids(kids.kids.filter((k) => k.active));
   }
@@ -62,7 +64,7 @@ export async function render(root) {
   mount(root, ...parentShell('/home',
     h('h1', {}, me.household.name),
     h('p', { class: 'muted' }, `Hi ${me.parent.display_name}!`),
-    error, approvalsBox, kidsBox,
+    error, warningBox, approvalsBox, kidsBox,
     h('p', { class: 'center' }, h('a', { class: 'btn secondary small', href: '#/chores' }, 'Manage chores'))));
   try { await load(); } catch (err) { showError(error, err); }
   return () => load();

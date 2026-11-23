@@ -183,3 +183,9 @@ spent), undo an approval (refused if the money was already spent), clear a late 
 (`parent_adjustment`, any time, note required) can't take Spending below zero.
 A back-filled instance's `reported_at` is the moment the parent recorded it.
 
+**Settle failures (migration `007`).** If settling a household fails, `Settler` records `households.settle_failed_at`
+(and rethrows; the request itself carries on, so the app keeps working). `GET /approvals` returns `settle_failed: true`
+while it is set, and the parent's Home screen shows "Some past days couldn't be updated — tell Lesley". The next settle
+that completes without error (including one that finds nothing left to do) clears it. `scripts/settle.php` records and
+reports the failure the same way and exits non-zero.
+

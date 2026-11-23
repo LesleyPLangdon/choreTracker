@@ -87,7 +87,7 @@ final class SeedGuardTest extends ApiTestCase
         $seeder = new Seeder($this->pdo, test_config(), $this->clock);
         $seeder->reset();
         $this->assertSame(0, (int) $this->pdo->query('SELECT COUNT(*) FROM parents')->fetchColumn());
-        $this->assertSame(6, (int) $this->pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn(), 'migration history kept');
+        $this->assertSame(7, (int) $this->pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn(), 'migration history kept');
         $this->assertTrue($seeder->seed()['created']);
     }
 

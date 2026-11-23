@@ -104,7 +104,10 @@ final class DayController extends BaseController
     public function approvals(Request $r): Response
     {
         $ctx = $this->parent($r);
-        return new Response(200, $this->instances->approvals($ctx['household_id']));
+        $failed = $this->pdo->prepare('SELECT settle_failed_at FROM households WHERE id = ?');
+        $failed->execute([$ctx['household_id']]);
+        // settle_failed: past days couldn't be updated; the screen shows a warning until a later settle succeeds.
+        return new Response(200, $this->instances->approvals($ctx['household_id']) + ['settle_failed' => $failed->fetchColumn() !== null]);
     }
 
     public function approvalCount(Request $r): Response
