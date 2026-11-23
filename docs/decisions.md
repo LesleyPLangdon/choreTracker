@@ -134,6 +134,7 @@
   - A **day with no required chores** is unlocked from the start; earnings go to Spending as they're approved.
   - **Days nobody opened** are settled the next time anyone opens the app (no cron needed; an optional settle script exists for a cPanel cron later).
   - **Back-fill and day overrides reach up to 7 days back.** Balance adjustments can happen any time but can't take Spending below zero.
+  - **Phase 3 build details (accepted Nov 23):** a required chore finished after its day ended doesn't restore a forfeited day (back-fill or an override does); a manual unlock or forfeit sticks and automatic rules never undo it; days waiting on a parent show in the approvals list but not the badge; a day that already unlocked stays unlocked if an approval is later undone (the parent can forfeit it manually).
   - The test site's **simulated time** lets Lesley test end-of-day rules without waiting for midnight.
 
 ## 9. Overdue behavior
@@ -171,4 +172,4 @@
 - **Name:** not yet. Lesley thinks the difference is the combination of features; revisit once the family has used it.
 - **Phase 1:** built, deployed to the Bluehost test site, and tested (Nov 23).
 - **Phase 2:** built, merged, and deployed to the test site (Nov 23).
-- **Phase 3:** prompt written (`docs/prompts/phase-3.md`). Next: run it in Claude Code, merge, deploy, and test with simulated time and the family.
+- **Phase 3:** built (PR #3, Nov 23). Next: merge, deploy, run migration and reset, test with simulated time and the family. Open item: settle errors should be visible to parents, not only logged.
