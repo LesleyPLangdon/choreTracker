@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { h, mount, errorBox, showError, clearError, formatValue, formatLocalTime } from '../ui.js';
+import { h, mount, errorBox, showError, clearError, formatValue, formatLocalTime, formatDay, balanceText } from '../ui.js';
 import { parentShell } from '../layout.js';
 import { approvalButtons } from '../chore-parts.js';
 
@@ -24,7 +24,7 @@ export async function render(root) {
     mount(approvalsBox, 
       h('div', { class: 'top-actions' }, h('h2', { style: 'margin:0' }, 'Needs your approval'), refreshButton),
       data.items.length
-        ? data.items.map((item) => h('div', { class: 'chore' },
+        ? data.items.map((item) => item.type === 'day_waiting' ? dayRow(item) : h('div', { class: 'chore' },
             h('div', { class: 'avatar', style: 'width:40px;height:40px;font-size:1.4rem' }, item.kid.avatar),
             h('div', { class: 'grow' },
               h('div', { class: 'title' }, item.title, item.slot_label ? h('span', { class: 'muted' }, ` · ${item.slot_label}`) : null),
@@ -33,6 +33,17 @@ export async function render(root) {
                 item.is_late ? h('span', { class: 'tag late', style: 'margin-left:6px' }, 'Late') : null)),
             h('div', { class: 'actions' }, approvalButtons(item.id, item.kid.nickname, load, (e) => showError(error, e)))))
         : h('p', { class: 'muted', style: 'margin:0' }, 'Nothing waiting. 🎉'));
+  }
+
+  // A day that ended with every required chore reported but not all approved. Approving its chores unlocks it.
+  function dayRow(item) {
+    const locked = balanceText(item.locked);
+    return h('a', { class: 'chore', href: `#/history/${item.kid.id}`, style: 'text-decoration:none;color:inherit' },
+      h('div', { class: 'avatar', style: 'width:40px;height:40px;font-size:1.4rem' }, item.kid.avatar),
+      h('div', { class: 'grow' },
+        h('div', { class: 'title' }, `${item.kid.nickname}'s ${formatDay(item.date)} is waiting on you`),
+        h('div', { class: 'muted' }, `${item.to_check} chore${item.to_check === 1 ? '' : 's'} to check above` + (locked !== '0' ? ` · ${locked} locked` : ''))),
+      h('span', { class: 'muted' }, 'History ›'));
   }
 
   function paintKids(kids) {

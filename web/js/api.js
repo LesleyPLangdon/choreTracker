@@ -63,5 +63,6 @@ export async function api(method, path, body, options = {}) {
     }
     throw new ApiError(data.error || `Something went wrong (${res.status}).`, res.status, data);
   }
+  if (path !== '/clock') window.dispatchEvent(new Event('ct:api-activity'));
   return data;
 }

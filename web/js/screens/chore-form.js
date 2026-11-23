@@ -89,6 +89,7 @@ export async function render(root, id) {
   paintSlots();
 
   const autoApprove = h('input', { type: 'checkbox', checked: group?.auto_approve ?? false });
+  const required = h('input', { type: 'checkbox', checked: group?.required ?? false });
   const overdue = h('select', {},
     h('option', { value: 'expire' }, 'Goes away (expires)'), h('option', { value: 'carry_over' }, 'Stays on the list (carries over)'));
   let overdueTouched = Boolean(group);
@@ -124,7 +125,7 @@ export async function render(root, id) {
 
   // ---- build the request ----
   function collect() {
-    const body = { title: title.value.trim(), schedule_type: schedType(), auto_approve: autoApprove.checked, overdue_behavior: overdue.value };
+    const body = { title: title.value.trim(), schedule_type: schedType(), auto_approve: autoApprove.checked, required: required.checked, overdue_behavior: overdue.value };
     if (kind.value !== 'none') {
       const text = amount.value.trim();
       if (kind.value === 'points') {
@@ -164,6 +165,8 @@ export async function render(root, id) {
     h('div', { class: 'row wrap' }, repeats, oneTime),
     daysBox, dueBox,
     h('div', { style: 'margin-top:12px' }, whoBox),
+    h('label', { class: 'check' }, required, 'Required'),
+    h('p', { class: 'hint', style: 'margin:0' }, 'Earnings stay locked until every required chore is done and approved. If a day ends with one not done, that day\'s earnings are forfeited. Changes start tomorrow.'),
     h('details', {},
       h('summary', {}, 'More options'),
       h('label', {}, 'Times of day'),

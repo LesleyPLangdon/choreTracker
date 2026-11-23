@@ -165,7 +165,7 @@ export function describeDays(days) {
 }
 
 /** A small pop-up asking for an optional note. Resolves to the text ('' is fine) or null if cancelled. */
-export function askNote(title, placeholder) {
+export function askNote(title, placeholder, buttonLabel = 'Send back') {
   return new Promise((resolve) => {
     const dialog = h('dialog', {});
     const input = h('input', { maxlength: 200, placeholder, autocomplete: 'off' });
@@ -174,7 +174,7 @@ export function askNote(title, placeholder) {
       h('h2', {}, title),
       input,
       h('div', { class: 'row', style: 'margin-top:16px' },
-        h('button', { type: 'submit', onclick: () => { answer = input.value.trim(); } }, 'Send back'),
+        h('button', { type: 'submit', onclick: () => { answer = input.value.trim(); } }, buttonLabel),
         h('button', { type: 'button', class: 'secondary', onclick: () => dialog.close() }, 'Cancel')));
     dialog.append(form);
     dialog.addEventListener('close', () => { dialog.remove(); resolve(answer); });
@@ -182,4 +182,22 @@ export function askNote(title, placeholder) {
     dialog.showModal();
     input.focus();
   });
+}
+
+/** '2026-12-01' -> "Tue, Dec 1" */
+export function formatDay(day) {
+  return dateFromDay(day).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+/** The two currencies side by side: "10 pts · $0.50" (or "0 pts" when both are zero). */
+export function balanceText(amounts) {
+  const parts = [];
+  if (amounts.points) parts.push(formatValue(amounts.points, 'points'));
+  if (amounts.money) parts.push(formatValue(amounts.money, 'money'));
+  return parts.length ? parts.join(' · ') : '0';
+}
+
+/** '2026-12-01 23:59:00' (a household-local or UTC SQL time) -> "Tue, Dec 1 · 11:59 PM" */
+export function formatSqlMoment(sql) {
+  return `${formatDay(sql.slice(0, 10))} · ${formatLocalTime(sql)}`;
 }

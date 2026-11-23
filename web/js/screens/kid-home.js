@@ -1,12 +1,14 @@
 import { api, session } from '../api.js';
-import { h, mount, errorBox, showError, clearError, earnedText, formatClock } from '../ui.js';
-import { choreTitle } from '../chore-parts.js';
+import { h, mount, errorBox, showError, clearError, balanceText, formatClock, formatDay } from '../ui.js';
+import { choreTitle, choreTags } from '../chore-parts.js';
 
-/** The kid's day: today's chores, Done / Undo, and what they've earned today. */
+/** The kid's day: lock status, today's chores, Done / Undo, what they've earned, and their Spending balance. */
 export async function render(root) {
   const error = errorBox();
   const header = h('div', { class: 'center' });
-  const earnedBox = h('div', { class: 'card earned' });
+  const noticeBox = h('div', {});
+  const statusBox = h('div', { class: 'card daybox' });
+  const moneyBox = h('div', { class: 'card' });
   const listBox = h('div', { class: 'card' });
   const refreshButton = h('button', { class: 'secondary small', onclick: () => load() }, '↻ Refresh');
 
@@ -17,28 +19,60 @@ export async function render(root) {
     } catch (err) {
       showError(error, err);
     }
-    await load();
+    try { await load(); } catch (err) { showError(error, err); }
   }
 
   async function load() {
     const data = await api('GET', '/kid/today', undefined, { as: 'kid' });
-    mount(header, 
+    mount(header,
       h('div', { class: 'avatar big' }, data.kid.avatar),
       h('h1', {}, `Hi, ${data.kid.nickname}!`));
-    mount(earnedBox, h('span', {}, 'Earned today'), h('strong', {}, earnedText(data.earned_today)));
-    paint(data);
+    paintNotices(data);
+    paintStatus(data);
+    mount(moneyBox,
+      h('div', { class: 'balance' }, h('span', {}, 'Earned today'), h('strong', {}, balanceText(data.earned_today))),
+      h('div', { class: 'balance' }, h('span', {}, 'Spending'), h('strong', {}, balanceText(data.spending))));
+    paintList(data);
   }
 
-  function paint(data) {
+  function dayName(date, today) {
+    const yesterday = new Date(today + 'T12:00:00');
+    yesterday.setDate(yesterday.getDate() - 1);
+    const y = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+    return date === y ? 'Yesterday' : formatDay(date);
+  }
+
+  // Short, neutral notes about earlier days. Informational, not scolding.
+  function paintNotices(data) {
+    mount(noticeBox, data.notices.map((n) => n.type === 'forfeited'
+      ? h('div', { class: 'notice kid' },
+          h('span', {}, `${dayName(n.date, data.today)}'s earnings didn't unlock. Today is a fresh start!`),
+          h('button', { class: 'small secondary', onclick: async () => { await api('POST', `/kid/days/${n.date}/ack`, {}, { as: 'kid' }); await load(); } }, 'OK'))
+      : h('div', { class: 'notice' }, `${dayName(n.date, data.today)}'s earnings are waiting for a parent to check.`)));
+  }
+
+  function paintStatus(data) {
+    const { day } = data;
+    const locked = balanceText(day.locked);
+    statusBox.className = `card daybox ${day.status}`;
+    if (day.status === 'unlocked') {
+      mount(statusBox, h('div', { class: 'state' }, '🔓 Today\'s earnings are unlocked!'));
+    } else if (day.status === 'waiting') {
+      mount(statusBox, h('div', { class: 'state' }, '⏳ Waiting for a parent to check.'),
+        locked !== '0' ? h('div', { class: 'locked-amount' }, `🔒 ${locked} locked`) : null);
+    } else {
+      mount(statusBox,
+        h('div', { class: 'state' }, '🔒 Finish these to unlock today\'s earnings:'),
+        h('ul', {}, day.required_left.map((r) => h('li', {},
+          r.title, r.slot_label ? ` — ${r.slot_label}` : '', r.opens_at ? `, opens at ${formatClock(r.opens_at)}` : ''))),
+        locked !== '0' ? h('div', { class: 'locked-amount' }, `🔒 ${locked} locked`) : null);
+    }
+  }
+
+  function paintList(data) {
     const row = (c) => {
       const body = choreTitle(c, data.today);
-      const tags = [];
-      if (c.status === 'reported_done') tags.push(h('span', { class: 'tag' }, 'Waiting for a parent'));
-      if (c.status === 'approved') tags.push(h('span', { class: 'tag ok' }, 'Approved ✓'));
-      if (c.is_late || c.past_due_by) tags.push(h('span', { class: 'tag late' }, 'Late'));
-      if (c.past_due_date) tags.push(h('span', { class: 'tag late' }, 'Past due date'));
-      if (c.opens_at) tags.push(h('span', { class: 'tag' }, `Opens at ${formatClock(c.opens_at)}`));
-      body.append(h('div', {}, tags));
+      body.append(choreTags(c, true));
       if (c.send_back_note) body.append(h('div', { class: 'note' }, `Sent back: “${c.send_back_note}”`));
       else if (c.status === 'sent_back') body.append(h('div', { class: 'note' }, 'Sent back — please try again.'));
 
@@ -51,7 +85,7 @@ export async function render(root) {
     const waiting = data.chores.filter((c) => c.status === 'reported_done');
     const done = data.chores.filter((c) => c.status === 'approved');
     const section = (title, items) => items.length ? [h('div', { class: 'section-title' }, title), ...items.map(row)] : [];
-    mount(listBox, 
+    mount(listBox,
       data.chores.length
         ? [...section('To do', todo), ...section('Waiting for a parent', waiting), ...section('Done', done)]
         : h('p', { class: 'muted', style: 'margin:0' }, 'No chores today. Enjoy! 🎉'));
@@ -63,7 +97,7 @@ export async function render(root) {
 
   mount(root,
     h('div', { class: 'top-actions' }, h('span', {}), refreshButton),
-    header, error, earnedBox, listBox,
+    header, noticeBox, error, statusBox, moneyBox, listBox,
     h('p', { class: 'center' }, h('button', {
       class: 'link',
       onclick: async () => {

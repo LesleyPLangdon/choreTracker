@@ -128,3 +128,23 @@ dialog::backdrop { background: rgba(20, 28, 45, .5); }
 [hidden] { display: none !important; }
 .inline select { flex: none; width: auto; max-width: 48%; }
 .inline input { flex: 1; width: 100%; min-width: 0; }
+
+/* ---- Phase 3: rules ---- */
+#sim-banner { position: sticky; top: 0; z-index: 10; background: #fff3d6; color: #6b4500; border-bottom: 2px solid #f0c36d; text-align: center; font-weight: 700; font-size: .9rem; padding: 6px 12px; }
+.daybox { text-align: center; }
+.daybox .state { font-weight: 800; font-size: 1.1rem; }
+.daybox.locked { background: #f1f4fa; }
+.daybox.unlocked { background: #e3f6ea; border-color: #b9e3c8; }
+.daybox.waiting { background: #fff8e1; border-color: #f0dca0; }
+.daybox ul { list-style: none; padding: 0; margin: 8px 0 0; text-align: left; }
+.daybox li { padding: 4px 0; }
+.locked-amount { color: var(--muted); font-weight: 700; margin-top: 6px; }
+.notice.kid { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+.tag.req { background: #e8edff; color: #2b4bb0; }
+.tag.warn { background: #fde8e8; color: var(--danger); }
+.balance { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; }
+.balance strong { font-size: 1.2rem; }
+.history-day { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
+.history-day:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+.event { font-size: .85rem; color: var(--muted); margin: 4px 0; }
+.stack-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }

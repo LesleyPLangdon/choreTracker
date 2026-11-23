@@ -356,8 +356,11 @@ final class OverridesTest extends RulesTestCase
         $this->kidList($this->kid);
 
         $h = $this->history();
-        $this->assertCount(8, $h['days']);
-        $this->assertSame(['2026-12-02', '2026-12-01', '2026-11-30'], array_slice(array_column($h['days'], 'date'), 0, 3));
+        $this->assertSame(['2026-12-02', '2026-12-01', '2026-11-30'], array_column($h['days'], 'date'), 'nothing before the household existed');
+
+        // For an older household: today plus the previous 7 days.
+        $this->pdo->exec("UPDATE households SET created_at = '2026-10-01 12:00:00'");
+        $this->assertCount(8, $this->history()['days']);
         $dec1 = $this->historyDay('2026-12-01');
         $this->assertSame('forfeited', $dec1['status']);
         $this->assertSame(['points' => 5, 'money' => 0], $dec1['earned']);

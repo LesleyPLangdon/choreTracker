@@ -220,9 +220,15 @@ final class Overrides
         $this->requireKid($householdId, $kidId);
         $time = $this->chores->householdTime($householdId);
         $today = $time->today();
+        $created = $this->pdo->prepare('SELECT created_at FROM households WHERE id = ?');
+        $created->execute([$householdId]);
+        $firstDay = $time->dayFor(new DateTimeImmutable($created->fetchColumn(), new DateTimeZone('UTC')));
         $days = [];
         for ($n = 0; $n <= self::DAYS_BACK; $n++) {
             $day = (new DateTimeImmutable($today))->modify("-$n days")->format('Y-m-d');
+            if ($day < $firstDay) {
+                break; // nothing existed before the household did
+            }
             $days[] = $this->dayJson($householdId, $kidId, $day, $today, $time);
         }
         $adj = $this->pdo->prepare(
