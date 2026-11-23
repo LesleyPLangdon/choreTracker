@@ -14,7 +14,7 @@
 ## 0. Build process & architecture (decided Oct 28; updated Nov 23)
 - **Planning and decisions happen in the claude.ai Chore Tracker Project** (easier to navigate; works from phone). This log stays the source of truth; the repo keeps a copy at `docs/decisions.md`.
 - **Repository:** `LesleyPLangdon/choreTracker` on GitHub (public).
-- **Building happens with Claude Code in the Claude desktop app** (not Google AI Studio, and not Codespaces — Codespaces usage ran out, Nov 23). Reasons for Claude Code:
+- **Building happens with Claude Code** (not Google AI Studio). **Big builds** (new projects, whole phases) run in the Claude desktop app, outside Codespaces, to save Codespaces hours. **Later edits and updates** will often happen in a GitHub Codespace; the repo includes a `.devcontainer` so a Codespace opens ready to go (decided Nov 23). Reasons for Claude Code:
   - The core of this app is ledger logic that must be exact.
   - Claude can run PHP + MySQL and test scenarios directly.
   - Every change is a git commit.

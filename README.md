@@ -17,6 +17,9 @@ Lesley's family chore tracker (working name; real name TBD). Kids complete chore
    > Read CLAUDE.md and docs/decisions.md, then tell me where we left off.
 4. Before you finish, ask Claude to **commit and push** so the work is saved on GitHub.
 
+### Working in a Codespace instead
+Big builds happen in the desktop app to save Codespaces hours, but smaller edits can happen in a Codespace. The repository includes a dev container, so a new Codespace opens with PHP and MySQL ready. Use the smallest (2-core) machine, and stop or delete Codespaces you aren't using, since they count against your monthly free hours.
+
 ### How testing works
 There are two kinds of testing:
 - **Automated tests (Claude runs these).** Claude Code sets up PHP and MySQL in its own environment and runs the tests before each commit. You can ask "run the tests" any time.

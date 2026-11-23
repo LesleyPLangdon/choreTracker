@@ -17,6 +17,7 @@ I don't have GitHub Codespaces. You work wherever this Claude Code session runs,
 - **`scripts/setup-dev.sh`**: sets up PHP 8.4 and a MySQL-compatible database for running tests in your environment. Prefer MySQL 5.7 (e.g., via Docker) if it's available; otherwise use what's available, keep the SQL 5.7-compatible, and tell me which database version the tests ran against.
 - **`scripts/test.sh`**: creates a fresh test database, runs all migrations, and runs PHPUnit.
 - Run the tests before every commit. A local preview server (e.g., `php -S`) is fine if it helps you check the front end, but it's optional.
+- **`.devcontainer/`**: later edits will often happen in a GitHub Codespace, where my free hours are limited. Add a small dev container (PHP 8.4, a MySQL 5.7 service, Composer for PHPUnit) so a Codespace opens with everything ready and `scripts/test.sh` works with no extra setup. Keep it lightweight so it starts fast on the smallest (2-core) machine.
 
 **The Bluehost test site (my hands-on testing):**
 - **`.cpanel.yml`**: deploys from the cPanel Git clone into the test site's web folder. Keep `config.php`, and anything else outside the deployed files, safe from being overwritten.
