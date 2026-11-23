@@ -34,8 +34,8 @@
 - **Time:** timestamps stored in UTC; "today" is calculated from the household's time zone and end-of-day time, through one shared clock so end-of-day rules can be tested by simulating a different time.
 - **Build in phases**, testing each with Lesley's family before the next:
   1. Foundation — parent accounts, household (incl. time zone), kid profiles + links + PIN, full database schema, plan field, test site on Bluehost. *(Prompt: docs/prompts/phase-1.md)*
-  2. Chores — create/schedule (incl. slots and times), kid "done," approve / send back / auto-approve, balances.
-  3. Rules — required chores, lock/unlock, end-of-day forfeit, late flag, overdue/expire, back-fill, override.
+  2. Chores — create/schedule (incl. slots and times), kid "done," undo, approve / send back (with note) / auto-approve, approvals list, available-from, late flag, earnings recorded as pending. *(Prompt: docs/prompts/phase-2.md)*
+  3. Rules — required chores, lock/unlock, end-of-day forfeit, overdue/expire, back-fill, override.
   4. Money flow — buckets, Spending, goals, rewards, challenges.
   5. Polish — PWA install, theme.
 
@@ -100,12 +100,18 @@
 ## 7. Chores
 - **Daily (recurring)** and **occasional (one-off)** chores.
 - **Scheduling (v1):** daily chores have a day-of-week picker (covers "weekdays only" and "weekly on Saturday"). One-off chores have an optional due date.
+- **One-off chores with a due date (decided Nov 23):** they show on the kid's list **from the day they're created, every day until done**, with the due date shown ("Due Sun"). The kid can work on it a little at a time and taps Done when finished (e.g., rake the front yard by Sunday). One instance, never duplicate copies. Earnings belong to the day it's reported done.
+- **What the kid sees:** today only — today's repeating chores plus open one-off chores. No preview of future days.
+- **New or changed chores show up the same day**, the next time the kid's list loads. Today's chores are created on demand when a view loads (no server cron job for this). Screens refresh when the app is opened, with a refresh control and light polling.
+- **Editing a chore** applies from today forward; past days and anything already reported or approved keep their original details. **Removing** a chore deactivates it and keeps its history.
 - **Slots (decided Oct 28):** a chore can happen more than once a day. Each chore has one or more **slots** (e.g., Morning and Evening); each slot can be completed once per day.
 - **Times (decided Oct 28):** any slot can have an optional **due-by time** and an optional **available-from time** (household-local). Examples: brush teeth — Morning due by 8:00, Evening available from 6:00 PM; walk the dog — Morning and Evening slots.
 - **Due-by is soft (decided Oct 28):** after the due-by time, the kid can still mark the chore done; it is flagged **late** so the parent can see it. **The end of the day is the hard cutoff** — no second time to set.
 - **Multiple kids:** assigning a chore to several kids creates a separate copy per kid; each completes and earns on their own. Shared "whoever does it first" chores are a later idea.
 - A chore may or may not carry a value.
 - **Completion flow:** assigned → kid reports done → parent approves or sends back. Parent can also mark complete directly.
+- **Undo (decided Nov 23):** the kid can undo "Done" until a parent approves it.
+- **Send back note (decided Nov 23):** the parent can add an optional short note, shown to the kid.
 - **Auto-approve:** per-chore on/off toggle (v1).
 - **Changing schedules (e.g., bus days vs. drive days):** no setting for now. Due-by is soft, so a drive day doesn't affect earnings; if it affects a timed challenge, the parent marks the challenge earned. A "today only" time change can come later if real use shows it's needed.
 
@@ -148,5 +154,5 @@
 
 ## Open / next up
 - **Name:** not yet. Lesley thinks the difference is the combination of features; revisit once the family has used it.
-- **Test site address:** pick a test subdomain on Bluehost (needed during Phase 1 setup).
-- **Phase 1:** repo created (`choreTracker`); prompt revised for Claude Code without Codespaces. Next: add `README.md`, `docs/decisions.md`, and `docs/prompts/phase-1.md` to the repo, run the Phase 1 prompt in Claude Code, and report back.
+- **Phase 1:** built, deployed to the Bluehost test site, and tested (Nov 23).
+- **Phase 2:** prompt written (`docs/prompts/phase-2.md`). Next: run it in Claude Code, update the test site, and test with the family.

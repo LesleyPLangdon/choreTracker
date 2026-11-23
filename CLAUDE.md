@@ -60,7 +60,6 @@ front end, `.cpanel.yml` deploy, dev container, and PHPUnit tests (all passing).
 Notes / open points:
 - A kid's link is shown only when created or reset (only its hash is stored, per the prompt), so the Kids screen
   can't re-show an old link; parents use "New link" to get a fresh one.
-- Tests ran on MariaDB 10.11 + PHP 8.3 in the Claude Code cloud environment (MySQL 5.7 and PHP 8.4 weren't
-  installable there). They have not yet run against real MySQL 5.7 — the dev container uses mysql:5.7 and should.
-- Not yet verified on a real Bluehost account (cPanel deploy, `.htaccess` Authorization pass-through).
-- Next: Phase 2 (Chores) — see `docs/decisions.md`.
+- Phase 1 is deployed to the Bluehost test site and tested there (Nov 23), so it has run on real PHP 8.4 +
+  Percona 5.7.
+- Next: Phase 2 (Chores) — follow `docs/prompts/phase-2.md`.
