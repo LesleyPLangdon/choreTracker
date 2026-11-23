@@ -29,7 +29,8 @@ return [
     // on the same site.
     'cors_allowed_origins' => [],
 
-    // Test site only: pretend "now" is this UTC time (e.g. '2026-12-01 03:30:00')
-    // to try end-of-day rules. Ignored unless is_test_site is true.
+    // Test site only: freeze "now" at this moment to try end-of-day rules. Write it in your own time zone,
+    // e.g. '2026-12-01 23:59:00 America/New_York' (without a zone name it is read as UTC).
+    // null = use the real time. Ignored unless is_test_site is true. See README.md.
     'simulated_now' => null,
 ];

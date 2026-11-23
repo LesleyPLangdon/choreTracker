@@ -104,6 +104,13 @@ To wipe everything and start over with a fresh demo family: `php /home/YOURUSER/
 
 The browser page only migrates; seeding needs Terminal.
 
+### Optional: settle days even when nobody opens the app
+The app settles each ended day automatically the next time anyone opens it, so nothing is required. If you'd like days settled on a schedule anyway, add a cPanel **Cron Jobs** entry (for example once an hour) with this command (replace `YOURUSER`):
+
+```bash
+php /home/YOURUSER/choretracker-test/scripts/settle.php
+```
+
 ## 8. Update the test site after Claude pushes
 1. cPanel → **Git™ Version Control** → **Manage** → **Update from Remote**.
 2. Click **Deploy HEAD Commit**.

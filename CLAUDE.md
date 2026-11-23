@@ -25,6 +25,9 @@ with you; `docs/schema.md` documents the database; `docs/prompts/` has one promp
   DB), no PHP sessions/cookies, so a Capacitor phone app can reuse everything.
 - **The ledger is append-only and balances are computed.** Never `UPDATE`/`DELETE` `ledger_entries`; correct with an
   offsetting entry. Never store a balance as an editable number. Use `App\Ledger`.
+- **Money moves between buckets only in `App\Rules\DayRules`** (unlock, forfeit, reverse, claw back) and only as
+  idempotent ledger entries computed from the ledger's current sums. Phase 4's Savings/Giving split goes in
+  `DayRules::moveToSpending`. Every authenticated request first runs `App\Rules\Settler` (end-of-day settlement).
 - **All time logic goes through `App\Clock` and `App\HouseholdTime`.** No `time()`, `date()`, `new DateTime('now')`,
   or SQL `NOW()` elsewhere. Store UTC; compute "today" and household-local times with `HouseholdTime`, so tests (and
   the test site's `simulated_now`) can simulate other moments.
@@ -52,22 +55,27 @@ On the server, only `web/` is public; `api/`, `db/`, `scripts/`, and `config.php
 ## Where we left off
 *(Update this at the end of every session.)*
 
-**Phase 1 (Foundation)** is built, deployed to the Bluehost test site, and tested there (real PHP 8.4 + Percona 5.7).
+**Phases 1 and 2** are built, merged, and deployed to the Bluehost test site (real PHP 8.4 + Percona 5.7).
 Notes: a kid's link is shown only when created or reset (only its hash is stored), so parents use "New link" for a
 fresh one. `scripts/deploy-cpanel.sh` never overwrites an existing web-root `.htaccess` (cPanel keeps the PHP version
 there — overwriting it once dropped the site to an old PHP).
 
-**Phase 2 (Chores) is built and tested in the cloud environment, but NOT yet deployed to the test site.**
-Done: migration `005` (send-back note, slot `active`); `ChoreInput`/`ChoreService` (create per kid with a shared
-`group_id`, edit one/all copies, remove = deactivate); `InstanceService` (on-demand idempotent instances, report/undo,
-approve/send back/mark done, approvals list + count, pending earnings via `Ledger`); API endpoints (`/chores`,
-`/kid/today`, `/kids/{id}/today`, `/instances/{id}/...`, `/approvals`); demo chores in the seed; front end (Chores list and
-form, Home approvals + badge, parent's kid-day view, kid's today list, ~1-minute refresh + foreground refresh +
-Refresh buttons). 87 PHPUnit tests pass (MariaDB 10.11 + PHP 8.3 in the cloud; not yet run on MySQL 5.7/PHP 8.4).
-**The test site needs migration 005:** `php scripts/migrate.php`. To see the new demo chores she must also run
-`php scripts/reset.php` (it wipes the demo data), because `seed.php` skips an existing demo household.
-Decisions made where the prompt was silent (flagged to Lesley): editing can't switch repeating ↔ one-time or change
-which kids a chore is assigned to; a parent's "Mark done" is never flagged late; "late" means strictly after due-by;
-earnings for one-time chores belong to the day reported; chores only appear from the day they're created (no back-creation
-of past days — Phase 3 must create/mark missed instances for days nobody opened the app).
-Next: Phase 3 (Rules) — required chores, lock/unlock, end-of-day forfeit, missed/expired, back-fill, override.
+**Phase 3 (Rules) is built and tested in the cloud environment, but NOT yet deployed to the test site.**
+Done: migration `006`; required chores (every slot required; `required_from`/`required_for_date` make changes start the
+next day; required one-time chores gate only their due date); `Rules\DayRules` (day status + all pending/spending/forfeit
+moves, idempotent); `Rules\Settler` (on-demand settlement via `households.settled_through`, runs on every authenticated
+request through `Auth::onAuthenticated`; creates instances for days nobody opened; missed/carry-over with no stacking);
+`Chores\InstanceCreator`; `Rules\Overrides` (back-fill, unlock, forfeit, undo approval, clear late, balance adjust,
+7-day history); `scripts/settle.php`; `/clock` + the yellow "Simulated time" banner (front end takes time from the API);
+`simulated_now` now accepts a local time with a zone name; seed makes Make bed and Brush teeth required; front end: Required
+checkbox, kid lock/waiting/unlocked status + Spending + overdue + forfeit note (dismiss with OK), parent approvals show
+waiting days, parent History screen (`#/history/<kid>`) with back-fill/overrides/adjust. 147 PHPUnit tests pass (MariaDB
+10.11 + PHP 8.3 in the cloud; not yet run on MySQL 5.7/PHP 8.4).
+**The test site needs migration 006** (`php scripts/migrate.php`); run `php scripts/reset.php` to get the required demo chores.
+Decisions made where the prompt was silent (flagged to Lesley): a required chore finished after its day ended doesn't
+revive a forfeited day (back-fill or an override does); manual unlock/forfeit overrides are sticky; waiting-day items in
+the approvals list aren't counted in the badge; history shows today + the previous 7 days (never before the household
+existed); back-fill sets `reported_at` to when the parent recorded it; balance adjustments require a note; the forfeit
+note has an OK button; a day that already unlocked stays unlocked even if an approval is later undone.
+Not done / ideas: a settle that fails is logged and skipped (the request still works) rather than failing the request.
+Next: Phase 4 (Money flow) — buckets, Spending purchases, goals, rewards, challenges.

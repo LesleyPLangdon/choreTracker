@@ -31,6 +31,33 @@ There are two kinds of testing:
 - Parents: `test@example.com` / `Correct-Horse-42` and `parent2@example.com` / `Correct-Horse-42`
 - Kids: PIN `1234`. Each kid's link is printed by the seed/reset command (`SETUP.md`), and the parent's **Kids** screen can make a fresh one any time with **New link** (for safety, a link can only be shown when it's created).
 
+### Testing end-of-day rules without waiting for midnight (simulated time)
+The test site can pretend it is any date and time you choose, so you can watch a day lock, unlock, forfeit, or settle in a few minutes. This only works on the test site (where `is_test_site` is `true`).
+
+**Set the time**
+1. In cPanel, open **File Manager**, go to your home folder, open `choretracker-test`, and **Edit** `config.php`.
+2. Find the line `'simulated_now' => null,` and change it to a time in **your own time zone**, written like this (keep the quotes and the comma):
+   ```
+   'simulated_now' => '2026-12-01 23:59:00 America/New_York',
+   ```
+   Use the date and time you want (24-hour clock) and your time zone name (the same one in Settings, like `America/Chicago`).
+3. Save, then reload the app. A yellow bar at the top of every screen says **Simulated time: …** so you never forget it's on.
+
+**What to know**
+- The simulated clock is **frozen**. It does not tick, so change the line each time you want to move time.
+- Move time **forward**. Days that have already been settled stay settled. To start over, run `php scripts/reset.php` (see `SETUP.md`), then set the time again.
+- Required chores start counting **the day after** a chore is created, so right after a reset, set the time to **tomorrow** to see the lock and unlock rules.
+
+**Try this: watch a day settle**
+1. Set the time to the morning of a day (for example `'2026-12-01 09:00:00 America/New_York'`). Open a kid's link: their screen says the day is **locked** and lists the required chores.
+2. Do and approve some chores. Earnings stay locked (grayed) until **every required chore is approved**; then the day **unlocks** and the money moves to **Spending**.
+3. Leave one required chore undone. Set the time to `'2026-12-01 23:59:00 America/New_York'`: nothing has changed yet, the day is still open.
+4. Set the time to the next morning (`'2026-12-02 08:00:00 America/New_York'`) and open the app. The day has **settled**: if a required chore was never done, the earnings were **forfeited** (the kid sees a short note); if everything was done but a parent hadn't approved yet, the day shows as **waiting on a parent** in the approvals list on the parent's Home screen.
+5. On the parent's **Home → a kid → History** screen you can **back-fill** a chore ("we did it, just didn't tap it") or **unlock/forfeit** a day, with a note.
+
+**Turn it off**
+Change the line back to `'simulated_now' => null,` and save. The yellow bar disappears and the app uses the real time again.
+
 ### Update the test site after Claude pushes
 The test site pulls its files straight from GitHub, so there's nothing to download or upload by hand.
 1. In Bluehost's cPanel, open **Git Version Control** → **Manage** for this repository.
