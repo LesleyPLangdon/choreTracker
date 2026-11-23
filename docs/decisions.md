@@ -110,6 +110,11 @@
 - **Multiple kids:** assigning a chore to several kids creates a separate copy per kid; each completes and earns on their own. Shared "whoever does it first" chores are a later idea.
 - A chore may or may not carry a value.
 - **Completion flow:** assigned → kid reports done → parent approves or sends back. Parent can also mark complete directly.
+- **Phase 2 build details (accepted Nov 23):**
+  - Editing can't switch a chore between repeating and one-time, or change which kids it's assigned to; remove it and add a new one (history is kept).
+  - "Late" means strictly after the due-by time. A parent's Mark done is never flagged late.
+  - Chores appear from the day they're created; nothing is created for past days.
+  - Slot times follow the household day (with a 2:00 AM day end, an "evening from 6 PM" slot is still open at 1 AM).
 - **Undo (decided Nov 23):** the kid can undo "Done" until a parent approves it.
 - **Send back note (decided Nov 23):** the parent can add an optional short note, shown to the kid.
 - **Auto-approve:** per-chore on/off toggle (v1).
@@ -155,4 +160,5 @@
 ## Open / next up
 - **Name:** not yet. Lesley thinks the difference is the combination of features; revisit once the family has used it.
 - **Phase 1:** built, deployed to the Bluehost test site, and tested (Nov 23).
-- **Phase 2:** prompt written (`docs/prompts/phase-2.md`). Next: run it in Claude Code, update the test site, and test with the family.
+- **Phase 2:** built (branch `claude/elegant-franklin-157mwi`, Nov 23). Next: merge into `main`, deploy to the test site, run the migration and reset, and test with the family.
+- **For Phase 3:** end-of-day rules must handle **days when nobody opened the app** (no instances were created), so required chores and forfeits are settled correctly when the app is next opened.
