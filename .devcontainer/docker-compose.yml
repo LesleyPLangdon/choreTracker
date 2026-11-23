@@ -1,0 +1,30 @@
+services:
+  app:
+    build: .
+    volumes:
+      - ..:/workspace:cached
+    command: sleep infinity
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_USER: choretracker
+      DB_PASS: choretracker
+      DB_NAME: choretracker_test
+    depends_on:
+      - db
+
+  # Same database family/version as Bluehost (Percona 5.7 ~ MySQL 5.7).
+  db:
+    image: mysql:5.7
+    platform: linux/amd64
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --innodb-buffer-pool-size=64M
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: choretracker
+      MYSQL_PASSWORD: choretracker
+      MYSQL_DATABASE: choretracker_test
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20

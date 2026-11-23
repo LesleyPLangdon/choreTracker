@@ -1,0 +1,5 @@
+# Safety net: if this whole repo ever sits inside a web root, hide non-public files.
+<FilesMatch "^(config(\.example)?\.php|composer\.(json|lock)|phpunit\.xml|CLAUDE\.md|SETUP\.md|README\.md|\.cpanel\.yml)$">
+    Require all denied
+</FilesMatch>
+Options -Indexes

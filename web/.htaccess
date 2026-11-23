@@ -1,0 +1,7 @@
+Options -Indexes
+# Don't let browsers keep stale copies of the app files while we're still changing them.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|css|html)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>

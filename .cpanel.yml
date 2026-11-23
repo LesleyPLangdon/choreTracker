@@ -1,0 +1,7 @@
+---
+# cPanel "Deploy HEAD Commit" runs these tasks from the Git clone.
+# All the real work is in scripts/deploy-cpanel.sh (which reads ~/.choretracker-deploy.conf for folder paths,
+# so no account-specific paths are stored in this public repository).
+deployment:
+  tasks:
+    - /bin/bash scripts/deploy-cpanel.sh

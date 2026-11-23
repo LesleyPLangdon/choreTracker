@@ -29,7 +29,7 @@ There are two kinds of testing:
 
 **Test sign-ins** (test site only):
 - Parents: `test@example.com` / `Correct-Horse-42` and `parent2@example.com` / `Correct-Horse-42`
-- Kids: PIN `1234`. Each kid's link is on the parent's **Kids** screen.
+- Kids: PIN `1234`. Each kid's link is printed by the seed/reset command (`SETUP.md`), and the parent's **Kids** screen can make a fresh one any time with **New link** (for safety, a link can only be shown when it's created).
 
 ### Update the test site after Claude pushes
 The test site pulls its files straight from GitHub, so there's nothing to download or upload by hand.

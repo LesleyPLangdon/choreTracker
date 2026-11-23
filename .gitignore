@@ -1,0 +1,14 @@
+# Secrets and local settings — never commit
+config.php
+.env
+*.local.php
+
+# Dev tooling
+/vendor/
+.phpunit.cache/
+.phpunit.result.cache
+
+# Written by the deploy script on the server
+web/api/app-dir.php
+
+.DS_Store

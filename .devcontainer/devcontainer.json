@@ -1,0 +1,16 @@
+{
+  "name": "Chore Tracker (PHP 8.4 + MySQL 5.7)",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  "postCreateCommand": "composer install --no-interaction --prefer-dist",
+  "forwardPorts": [8080],
+  "portsAttributes": { "8080": { "label": "Chore Tracker preview" } },
+  "customizations": {
+    "vscode": {
+      "extensions": ["bmewburn.vscode-intelephense-client"],
+      "settings": { "php.validate.enable": false }
+    }
+  },
+  "hostRequirements": { "cpus": 2 }
+}

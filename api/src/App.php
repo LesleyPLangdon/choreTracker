@@ -1,0 +1,110 @@
+<?php
+declare(strict_types=1);
+
+namespace App;
+
+use App\Controllers\AccountController;
+use App\Controllers\HouseholdController;
+use App\Controllers\InviteController;
+use App\Controllers\KidAuthController;
+use App\Controllers\KidController;
+use App\Http\ApiException;
+use App\Http\Request;
+use App\Http\Response;
+use App\Http\Router;
+use PDO;
+
+/** Wires everything together. `handle()` turns a Request into a Response (no HTTP needed, so tests call it directly). */
+final class App
+{
+    public readonly Auth $auth;
+    private Router $router;
+
+    public function __construct(public readonly PDO $pdo, public readonly Config $config, public readonly Clock $clock)
+    {
+        $this->auth = new Auth($pdo, $clock);
+        $this->router = new Router();
+        $this->routes();
+    }
+
+    /** Builds the app from config.php, honouring `simulated_now` on test sites only. */
+    public static function fromConfig(Config $config): self
+    {
+        $clock = new Clock();
+        $sim = $config->get('simulated_now');
+        if ($config->isTestSite() && is_string($sim) && $sim !== '') {
+            $clock->set($sim);
+        }
+        return new self(Database::connect($config), $config, $clock);
+    }
+
+    public function handle(Request $request): Response
+    {
+        try {
+            $cors = $this->corsHeaders($request);
+            if ($request->method === 'OPTIONS') {
+                return new Response(204, [], $cors);
+            }
+            $response = $this->router->dispatch($request);
+            return new Response($response->status, $response->data, $cors + $response->headers);
+        } catch (ApiException $e) {
+            return new Response($e->status, ['error' => $e->getMessage()] + $e->extra, $this->corsHeaders($request));
+        } catch (\Throwable $e) {
+            error_log('Chore Tracker error: ' . $e);
+            return new Response(500, ['error' => 'Something went wrong on our side.'], $this->corsHeaders($request));
+        }
+    }
+
+    private function corsHeaders(Request $request): array
+    {
+        $origin = $request->header('origin');
+        $allowed = $this->config->get('cors_allowed_origins', []);
+        if ($origin !== null && is_array($allowed) && in_array($origin, $allowed, true)) {
+            return [
+                'Access-Control-Allow-Origin' => $origin,
+                'Access-Control-Allow-Headers' => 'Authorization, Content-Type',
+                'Access-Control-Allow-Methods' => 'GET, POST, PUT, DELETE, OPTIONS',
+                'Vary' => 'Origin',
+            ];
+        }
+        return [];
+    }
+
+    private function routes(): void
+    {
+        $args = [$this->pdo, $this->config, $this->clock, $this->auth];
+        $account = new AccountController(...$args);
+        $household = new HouseholdController(...$args);
+        $invites = new InviteController(...$args);
+        $kids = new KidController(...$args);
+        $kidAuth = new KidAuthController(...$args);
+        $r = $this->router;
+
+        $r->add('POST', '/register', [$account, 'register']);
+        $r->add('POST', '/login', [$account, 'login']);
+        $r->add('POST', '/logout', [$account, 'logout']);
+        $r->add('GET', '/me', [$account, 'me']);
+
+        $r->add('GET', '/household', [$household, 'show']);
+        $r->add('PUT', '/household', [$household, 'update']);
+
+        $r->add('GET', '/invites', [$invites, 'index']);
+        $r->add('POST', '/invites', [$invites, 'create']);
+        $r->add('DELETE', '/invites/{id}', [$invites, 'revoke']);
+        $r->add('GET', '/invite/{token}', [$invites, 'preview']);
+        $r->add('POST', '/invite/{token}/accept', [$invites, 'accept']);
+
+        $r->add('GET', '/kids', [$kids, 'index']);
+        $r->add('POST', '/kids', [$kids, 'create']);
+        $r->add('PUT', '/kids/{id}', [$kids, 'update']);
+        $r->add('POST', '/kids/{id}/active', [$kids, 'setActive']);
+        $r->add('POST', '/kids/{id}/pin', [$kids, 'setPin']);
+        $r->add('POST', '/kids/{id}/link/reset', [$kids, 'resetLink']);
+        $r->add('POST', '/kids/{id}/unlock', [$kids, 'unlock']);
+
+        $r->add('GET', '/kid/link/{token}', [$kidAuth, 'preview']);
+        $r->add('POST', '/kid/login', [$kidAuth, 'login']);
+        $r->add('GET', '/kid/me', [$kidAuth, 'me']);
+        $r->add('POST', '/kid/logout', [$kidAuth, 'logout']);
+    }
+}
