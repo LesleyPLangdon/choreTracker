@@ -124,3 +124,10 @@ The browser page only migrates; seeding needs Terminal.
 - **Signed in but immediately signed out / "Please sign in" everywhere:** the web server may be dropping the
   `Authorization` header. `web/api/.htaccess` already handles the common case; tell Claude if it still happens.
 - **Blank page / 500 on `/api/...`:** check **Metrics → Errors** in cPanel for the PHP error message.
+- **"PHP Parse error" lines in `api/error_log`, or a 500 on sign-in:** the site is running an older PHP than 8.3.
+  Set the domain to **PHP 8.4** in cPanel → **MultiPHP Manager** and click Apply. cPanel stores that choice in the
+  `.htaccess` file in the site's web folder. The deploy script never overwrites an existing `.htaccess`, so the setting
+  survives later deploys. (If you ever delete that file, set the PHP version again.)
+- **`command not found` with a `$'\r'` when the deploy runs:** `~/.choretracker-deploy.conf` has Windows line endings
+  (usually from pasting). Fix it with `sed -i 's/\r$//' ~/.choretracker-deploy.conf`.
+
