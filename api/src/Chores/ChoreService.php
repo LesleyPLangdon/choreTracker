@@ -150,6 +150,8 @@ final class ChoreService
             $groups[$key]['kids'][] = [
                 'chore_id' => (int) $c['id'], 'kid_id' => (int) $c['kid_id'],
                 'nickname' => $c['nickname'], 'avatar' => $c['avatar'], 'active' => (bool) $c['kid_active'],
+                // This copy's own slot ids, in display order (the editor needs them to edit just one kid's copy).
+                'slot_ids' => array_map(fn ($s) => (int) $s['id'], $this->activeSlots((int) $c['id'])),
             ];
         }
         return array_values($groups);

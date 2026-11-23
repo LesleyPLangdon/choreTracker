@@ -360,6 +360,41 @@ final class ChoreFlowTest extends ApiTestCase
         $this->assertSame(['Only Alex', 'Dishes+'], $this->pdo->query('SELECT title FROM chores ORDER BY id')->fetchAll(\PDO::FETCH_COLUMN));
     }
 
+    public function testEditingOneKidsCopyOfAMultiTimeChoreUsesThatCopysOwnSlots(): void
+    {
+        [$kid2] = $this->createKid($this->parent, 'Sam');
+        $this->createChore($this->parent, [$this->kidId, $kid2], ['title' => 'Walk dog', 'slots' => [['label' => 'Morning'], ['label' => 'Evening']]]);
+        $group = $this->call('GET', '/chores', [], $this->parent)[1]['chores'][0];
+        $this->assertCount(2, $group['kids']);
+        $sam = array_values(array_filter($group['kids'], fn ($k) => $k['kid_id'] === $kid2))[0];
+        $this->assertCount(2, $sam['slot_ids']);
+
+        // Change just Sam's copy, referring to Sam's own slot ids.
+        [$status] = $this->call('PUT', "/chores/{$sam['chore_id']}", [
+            'title' => 'Walk dog', 'schedule_type' => 'daily', 'apply_to' => 'one',
+            'slots' => [['id' => $sam['slot_ids'][0], 'label' => 'Early'], ['id' => $sam['slot_ids'][1], 'label' => 'Evening']],
+        ], $this->parent);
+        $this->assertSame(200, $status);
+        $labels = fn (int $kid) => $this->pdo->query("SELECT s.label FROM chore_slots s JOIN chores c ON c.id = s.chore_id WHERE c.kid_id = $kid AND s.active = 1 ORDER BY s.sort_order")->fetchAll(\PDO::FETCH_COLUMN);
+        $this->assertSame(['Early', 'Evening'], $labels($kid2));
+        $this->assertSame(['Morning', 'Evening'], $labels($this->kidId));
+
+        // Change all copies using the first copy's slot ids: the other copy is matched by position.
+        $slots = $group['slots'];
+        $this->call('PUT', "/chores/{$group['id']}", [
+            'title' => 'Walk dog', 'schedule_type' => 'daily',
+            'slots' => [['id' => $slots[0]['id'], 'label' => 'Dawn'], ['id' => $slots[1]['id'], 'label' => 'Dusk']],
+        ], $this->parent);
+        $this->assertSame(['Dawn', 'Dusk'], $labels($this->kidId));
+        $this->assertSame(['Dawn', 'Dusk'], $labels($kid2));
+
+        // A slot id that isn't part of the chore being edited is refused.
+        [$status] = $this->call('PUT', "/chores/{$sam['chore_id']}", [
+            'title' => 'Walk dog', 'schedule_type' => 'daily', 'apply_to' => 'one', 'slots' => [['id' => $slots[0]['id'], 'label' => 'X']],
+        ], $this->parent);
+        $this->assertSame(422, $status);
+    }
+
     public function testEditingSlotsAddsAndDeactivatesWithoutLosingHistory(): void
     {
         $this->createChore($this->parent, [$this->kidId], ['title' => 'Teeth', 'slots' => [['label' => 'Morning'], ['label' => 'Evening']]]);

@@ -85,3 +85,46 @@ summary { cursor: pointer; font-weight: 600; color: var(--primary); }
 
 #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #1c2333; color: #fff; padding: 10px 16px; border-radius: 99px; opacity: 0; pointer-events: none; transition: opacity .2s; max-width: 90vw; }
 #toast.show { opacity: .95; }
+
+/* ---- Phase 2: chores ---- */
+.nav a { position: relative; }
+.count { display: inline-block; min-width: 20px; margin-left: 6px; padding: 0 6px; border-radius: 99px; background: var(--danger); color: #fff; font-size: .78rem; font-weight: 700; line-height: 20px; text-align: center; }
+.nav a.active .count { background: #fff; color: var(--primary); }
+button.success { background: var(--ok); }
+button.success:hover { background: #17703c; }
+.section-title { font-size: .85rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 18px 0 8px; }
+.chore { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-top: 1px solid var(--line); }
+.chore:first-child { border-top: 0; }
+.chore .title { font-weight: 600; }
+.chore.dim { opacity: .55; }
+.chore .actions { display: flex; gap: 6px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
+.tag { display: inline-block; font-size: .75rem; font-weight: 700; padding: 1px 8px; border-radius: 99px; background: #eef1f7; color: var(--muted); margin-right: 4px; }
+.tag.late { background: #fff3d6; color: #8a5a00; }
+.tag.ok { background: #e3f6ea; color: var(--ok); }
+.tag.bad { background: #fde8e8; color: var(--danger); }
+.note { font-size: .9rem; color: var(--danger); margin-top: 2px; }
+.earned { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.earned strong { font-size: 1.4rem; }
+.hint { font-size: .85rem; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips label { margin: 0; font-weight: 600; }
+.chips input { position: absolute; opacity: 0; width: 0; }
+.chips span { display: inline-block; min-width: 46px; text-align: center; padding: 8px 10px; border: 2px solid var(--line); border-radius: 10px; background: #fff; cursor: pointer; }
+.chips input:checked + span { border-color: var(--primary); background: #eaf1ff; }
+.chips input:focus-visible + span { outline: 3px solid #9ec0ff; }
+.inline { display: flex; gap: 8px; align-items: center; }
+.inline > * { width: auto; }
+.inline input[type=number], .inline input[type=text] { flex: 1; min-width: 0; }
+.slot { border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin: 8px 0; background: #fafbfd; }
+.slot .times { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.slot label { font-weight: 600; font-size: .85rem; margin: 8px 0 2px; }
+.check { display: flex; align-items: center; gap: 8px; font-weight: 600; margin: 12px 0 4px; }
+.check input { width: auto; }
+.top-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
+dialog { border: 0; border-radius: var(--radius); padding: 20px; width: min(92vw, 420px); }
+dialog::backdrop { background: rgba(20, 28, 45, .5); }
+
+/* The hidden attribute must always win (e.g. the empty approvals badge). */
+[hidden] { display: none !important; }
+.inline select { flex: none; width: auto; max-width: 48%; }
+.inline input { flex: 1; width: 100%; min-width: 0; }

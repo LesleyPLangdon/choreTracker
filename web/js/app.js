@@ -1,5 +1,6 @@
 // Hash-based router. Each screen is a module in screens/ that exports render(root, params).
 import { session } from './api.js';
+import { refreshBadge } from './layout.js';
 import { h, mount } from './ui.js';
 import * as login from './screens/login.js';
 import * as register from './screens/register.js';
@@ -7,6 +8,9 @@ import * as join from './screens/join.js';
 import * as home from './screens/home.js';
 import * as kids from './screens/kids.js';
 import * as settings from './screens/settings.js';
+import * as chores from './screens/chores.js';
+import * as choreForm from './screens/chore-form.js';
+import * as kidDay from './screens/kid-day.js';
 import * as kidPin from './screens/kid-pin.js';
 import * as kidHome from './screens/kid-home.js';
 
@@ -18,11 +22,19 @@ const routes = [
   [/^\/home$/, home, 'parent'],
   [/^\/kids$/, kids, 'parent'],
   [/^\/settings$/, settings, 'parent'],
+  [/^\/chores$/, chores, 'parent'],
+  [/^\/chores\/new$/, choreForm, 'parent'],
+  [/^\/chores\/edit\/(\d+)$/, choreForm, 'parent'],
+  [/^\/day\/(\d+)$/, kidDay, 'parent'],
   [/^\/k\/([^/]+)$/, kidPin, null],
   [/^\/kid$/, kidHome, 'kid'],
 ];
 
 const root = document.getElementById('app');
+
+// A screen's render() may return a function that reloads just its data (without wiping forms).
+// We call it when the app comes back to the foreground and about once a minute while it is visible.
+let refreshScreen = null;
 
 function currentPath() {
   return location.hash.replace(/^#/, '') || '/';
@@ -53,8 +65,10 @@ async function route() {
     }
     const params = match.slice(1).map(decodeURIComponent);
     mount(root, h('p', { class: 'loading' }, 'Loading…'));
+    refreshScreen = null;
     try {
-      await screen.render(root, ...params);
+      const result = await screen.render(root, ...params);
+      refreshScreen = typeof result === 'function' ? result : null;
     } catch (err) {
       mount(root, h('div', { class: 'card' }, h('h2', {}, 'Oops'), h('p', {}, err.message || 'Something went wrong.'),
         h('a', { class: 'btn', href: '#/' }, 'Back')));
@@ -64,6 +78,15 @@ async function route() {
   }
   mount(root, h('div', { class: 'card' }, h('h2', {}, 'Page not found'), h('a', { class: 'btn', href: '#/' }, 'Go home')));
 }
+
+function refreshNow() {
+  if (document.hidden) return;
+  if (refreshScreen) Promise.resolve(refreshScreen()).catch(() => { /* keep showing what we have */ });
+  else if (session.parentToken() && currentPath() !== '/login') refreshBadge();
+}
+document.addEventListener('visibilitychange', refreshNow);
+window.addEventListener('focus', refreshNow);
+setInterval(refreshNow, 60000);
 
 window.addEventListener('hashchange', route);
 window.addEventListener('ct:signed-out', (event) => {
