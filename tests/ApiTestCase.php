@@ -58,4 +58,39 @@ abstract class ApiTestCase extends TestCase
         $this->assertSame(201, $status, json_encode($body));
         return [$body['kid']['id'], $body['link_token']];
     }
+
+    /** Signs a kid in with their link + PIN and returns the kid token. */
+    protected function kidToken(string $link, string $pin = '1234'): string
+    {
+        [$status, $body] = $this->call('POST', '/kid/login', ['link_token' => $link, 'pin' => $pin]);
+        $this->assertSame(200, $status, json_encode($body));
+        return $body['token'];
+    }
+
+    /** Creates a chore for the given kids and returns the new chore ids. */
+    protected function createChore(string $parentToken, array $kidIds, array $fields = []): array
+    {
+        [$status, $body] = $this->call('POST', '/chores', $fields + ['title' => 'Make bed', 'kid_ids' => $kidIds], $parentToken);
+        $this->assertSame(201, $status, json_encode($body));
+        return $body['chore_ids'];
+    }
+
+    /** The kid's list for today, as the kid sees it. */
+    protected function kidList(string $kidToken): array
+    {
+        [$status, $body] = $this->call('GET', '/kid/today', [], $kidToken);
+        $this->assertSame(200, $status, json_encode($body));
+        return $body;
+    }
+
+    /** Titles (with slot label) on a list, for easy comparison. */
+    protected function titles(array $day): array
+    {
+        return array_map(fn ($c) => $c['title'] . ($c['slot_label'] ? ' / ' . $c['slot_label'] : ''), $day['chores']);
+    }
+
+    protected function countRows(string $sql): int
+    {
+        return (int) $this->pdo->query($sql)->fetchColumn();
+    }
 }

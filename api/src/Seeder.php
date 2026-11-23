@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace App;
 
+use App\Chores\ChoreService;
+use App\HouseholdTime;
 use App\Support\Tokens;
 use PDO;
 
@@ -48,6 +50,7 @@ final class Seeder
         $parent->execute([$householdId, 'parent2@example.com', password_hash(self::PARENT_PASSWORD, PASSWORD_DEFAULT), 'Second Parent', $now]);
 
         $links = [];
+        $kidIds = [];
         $kid = $this->pdo->prepare(
             'INSERT INTO kids (household_id, nickname, avatar, pin_hash, link_token_hash, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)'
         );
@@ -55,7 +58,36 @@ final class Seeder
             $token = Tokens::generate('kl_');
             $kid->execute([$householdId, $nickname, $avatar, password_hash(self::KID_PIN, PASSWORD_DEFAULT), Tokens::hash($token), $now, $now]);
             $links[$nickname] = $token;
+            $kidIds[] = (int) $this->pdo->lastInsertId();
         }
+        $this->seedChores($householdId, $kidIds);
         return ['created' => true, 'kid_links' => $links];
+    }
+
+    /** Demo chores, assigned to both kids, so every Phase 2 feature can be tried right away. */
+    private function seedChores(int $householdId, array $kidIds): void
+    {
+        $chores = new ChoreService($this->pdo, $this->clock);
+        $time = $chores->householdTime($householdId);
+        // The coming Sunday (today, if today is Sunday).
+        $today = $time->today();
+        $untilSunday = (7 - HouseholdTime::isoWeekday($today)) % 7;
+        $sunday = (new \DateTimeImmutable($today))->modify("+$untilSunday days")->format('Y-m-d');
+
+        $demo = [
+            ['title' => 'Make bed', 'value' => 10, 'currency' => 'points'],
+            ['title' => 'Brush teeth', 'slots' => [
+                ['label' => 'Morning', 'due_by' => '08:00'],
+                ['label' => 'Evening', 'available_from' => '18:00'],
+            ]],
+            ['title' => 'Walk the dog', 'value' => 50, 'currency' => 'money', 'slots' => [
+                ['label' => 'Morning'], ['label' => 'Evening'],
+            ]],
+            ['title' => 'Rake the front yard', 'schedule_type' => 'one_off', 'due_date' => $sunday, 'value' => 500, 'currency' => 'money'],
+            ['title' => 'Feed the fish', 'value' => 5, 'currency' => 'points', 'auto_approve' => true],
+        ];
+        foreach ($demo as $chore) {
+            $chores->create($householdId, $chore + ['kid_ids' => $kidIds]);
+        }
     }
 }

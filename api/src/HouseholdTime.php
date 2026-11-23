@@ -68,6 +68,37 @@ final class HouseholdTime
             ->setTimezone($this->tz)->format('Y-m-d H:i:s');
     }
 
+    /** Seconds since the household's current day began (the day starts at day_end_time), for a UTC moment. */
+    public function secondsIntoDay(DateTimeImmutable $utc): int
+    {
+        $local = $utc->setTimezone($this->tz);
+        $seconds = ((int) $local->format('G')) * 3600 + ((int) $local->format('i')) * 60 + (int) $local->format('s');
+        return $this->wrapDay($seconds - $this->dayEndMinutes * 60);
+    }
+
+    /**
+     * Where a household-local clock time ('H:i' or 'H:i:s', e.g. a slot's due-by) falls within the day,
+     * in the same units as secondsIntoDay(). With a 2:00 AM day end, 18:00 is 16 hours into the day and
+     * 01:00 is 23 hours in, so late-night evening chores still count as "the evening".
+     */
+    public function clockSecondsIntoDay(string $time): int
+    {
+        $parts = array_map('intval', explode(':', $time));
+        $seconds = $parts[0] * 3600 + ($parts[1] ?? 0) * 60 + ($parts[2] ?? 0);
+        return $this->wrapDay($seconds - $this->dayEndMinutes * 60);
+    }
+
+    /** ISO weekday (1 = Monday ... 7 = Sunday) of a day label like '2026-12-01'. */
+    public static function isoWeekday(string $day): int
+    {
+        return (int) (new DateTimeImmutable($day, new DateTimeZone('UTC')))->format('N');
+    }
+
+    private function wrapDay(int $seconds): int
+    {
+        return (($seconds % 86400) + 86400) % 86400;
+    }
+
     private function dayEndClock(): string
     {
         return sprintf('%02d:%02d:00', intdiv($this->dayEndMinutes, 60), $this->dayEndMinutes % 60);

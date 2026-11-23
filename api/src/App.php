@@ -3,7 +3,11 @@ declare(strict_types=1);
 
 namespace App;
 
+use App\Chores\ChoreService;
+use App\Chores\InstanceService;
 use App\Controllers\AccountController;
+use App\Controllers\ChoreController;
+use App\Controllers\DayController;
 use App\Controllers\HouseholdController;
 use App\Controllers\InviteController;
 use App\Controllers\KidAuthController;
@@ -78,6 +82,10 @@ final class App
         $invites = new InviteController(...$args);
         $kids = new KidController(...$args);
         $kidAuth = new KidAuthController(...$args);
+        $choreService = new ChoreService($this->pdo, $this->clock);
+        $instanceService = new InstanceService($this->pdo, $this->clock, new Ledger($this->pdo, $this->clock), $choreService);
+        $choreCtl = new ChoreController(...$args, ...[$choreService, $instanceService]);
+        $dayCtl = new DayController(...$args, ...[$instanceService]);
         $r = $this->router;
 
         $r->add('POST', '/register', [$account, 'register']);
@@ -101,6 +109,22 @@ final class App
         $r->add('POST', '/kids/{id}/pin', [$kids, 'setPin']);
         $r->add('POST', '/kids/{id}/link/reset', [$kids, 'resetLink']);
         $r->add('POST', '/kids/{id}/unlock', [$kids, 'unlock']);
+
+        $r->add('GET', '/chores', [$choreCtl, 'index']);
+        $r->add('POST', '/chores', [$choreCtl, 'create']);
+        $r->add('PUT', '/chores/{id}', [$choreCtl, 'update']);
+        $r->add('DELETE', '/chores/{id}', [$choreCtl, 'remove']);
+
+        $r->add('GET', '/kids/{id}/today', [$dayCtl, 'parentKidToday']);
+        $r->add('POST', '/instances/{id}/approve', [$dayCtl, 'approve']);
+        $r->add('POST', '/instances/{id}/send-back', [$dayCtl, 'sendBack']);
+        $r->add('POST', '/instances/{id}/mark-done', [$dayCtl, 'markDone']);
+        $r->add('GET', '/approvals', [$dayCtl, 'approvals']);
+        $r->add('GET', '/approvals/count', [$dayCtl, 'approvalCount']);
+
+        $r->add('GET', '/kid/today', [$dayCtl, 'kidToday']);
+        $r->add('POST', '/kid/instances/{id}/done', [$dayCtl, 'kidDone']);
+        $r->add('POST', '/kid/instances/{id}/undo', [$dayCtl, 'kidUndo']);
 
         $r->add('GET', '/kid/link/{token}', [$kidAuth, 'preview']);
         $r->add('POST', '/kid/login', [$kidAuth, 'login']);
