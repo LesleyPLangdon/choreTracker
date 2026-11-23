@@ -34,8 +34,19 @@ done
 cp "$SRC/config.example.php" "$APP_DIR/config.example.php"
 
 # Public files: refresh the folders we own, then copy over the top.
+# IMPORTANT: never overwrite an existing top-level .htaccess. cPanel's MultiPHP Manager writes the PHP
+# version into that file; replacing it would silently drop the site back to an older PHP.
+KEEP_HTACCESS=""
+if [ -f "$WEB_DIR/.htaccess" ]; then
+  KEEP_HTACCESS="$(mktemp)"
+  cp -p "$WEB_DIR/.htaccess" "$KEEP_HTACCESS"
+fi
 rm -rf "${WEB_DIR:?}/js" "${WEB_DIR:?}/css" "${WEB_DIR:?}/api"
 cp -R "$SRC/web/." "$WEB_DIR/"
+if [ -n "$KEEP_HTACCESS" ]; then
+  cp -p "$KEEP_HTACCESS" "$WEB_DIR/.htaccess"
+  rm -f "$KEEP_HTACCESS"
+fi
 
 # Tell the public API entry point where the private code is.
 printf "<?php\nreturn %s;\n" "'$APP_DIR'" > "$WEB_DIR/api/app-dir.php"
