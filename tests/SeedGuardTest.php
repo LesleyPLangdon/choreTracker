@@ -56,13 +56,38 @@ final class SeedGuardTest extends ApiTestCase
         $this->assertSame(200, $status);
     }
 
+    public function testSeedCreatesTheDemoChoresForBothKids(): void
+    {
+        $result = (new Seeder($this->pdo, test_config(), $this->clock))->seed();
+        $kid = $this->kidToken($result['kid_links']['Alex']);
+        $day = $this->kidList($kid);
+        $this->assertSame(
+            ['Brush teeth / Morning', 'Brush teeth / Evening', 'Feed the fish', 'Make bed', 'Rake the front yard', 'Walk the dog / Morning', 'Walk the dog / Evening'],
+            $this->titles($day)
+        );
+        $byTitle = [];
+        foreach ($day['chores'] as $c) {
+            $byTitle[$c['title'] . ($c['slot_label'] ? '/' . $c['slot_label'] : '')] = $c;
+        }
+        $this->assertSame([10, 'points'], [$byTitle['Make bed']['value'], $byTitle['Make bed']['currency']]);
+        $this->assertSame([50, 'money'], [$byTitle['Walk the dog/Morning']['value'], $byTitle['Walk the dog/Morning']['currency']]);
+        $this->assertSame([500, 'money'], [$byTitle['Rake the front yard']['value'], $byTitle['Rake the front yard']['currency']]);
+        $this->assertNull($byTitle['Brush teeth/Morning']['value']);
+        $this->assertSame('08:00', $byTitle['Brush teeth/Morning']['due_by']);
+        $this->assertTrue($byTitle['Feed the fish']['auto_approve']);
+        $this->assertSame('Sunday', date('l', strtotime($byTitle['Rake the front yard']['due_date'])));
+        $this->assertGreaterThanOrEqual($day['today'], $byTitle['Rake the front yard']['due_date']);
+        $this->assertSame(5, $this->countRows('SELECT COUNT(DISTINCT group_id) FROM chores'));
+        $this->assertSame(10, $this->countRows('SELECT COUNT(*) FROM chores'));
+    }
+
     public function testResetWipesDataThenReseeds(): void
     {
         $this->registerParent('someone@example.com');
         $seeder = new Seeder($this->pdo, test_config(), $this->clock);
         $seeder->reset();
         $this->assertSame(0, (int) $this->pdo->query('SELECT COUNT(*) FROM parents')->fetchColumn());
-        $this->assertSame(4, (int) $this->pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn(), 'migration history kept');
+        $this->assertSame(5, (int) $this->pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn(), 'migration history kept');
         $this->assertTrue($seeder->seed()['created']);
     }
 

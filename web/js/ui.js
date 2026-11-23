@@ -100,3 +100,86 @@ export function browserTimezone() {
 export function appBaseUrl() {
   return location.origin + location.pathname.replace(/index\.html$/, '');
 }
+
+// ---- formatting helpers shared by the chore screens ---------------------------------------------------
+
+/** 10 points -> "10 pts"; 50 cents -> "$0.50"; nothing -> "". */
+export function formatValue(value, currency) {
+  if (value === null || value === undefined || !currency) return '';
+  if (currency === 'money') return '$' + (value / 100).toFixed(2);
+  return `${value} pt${value === 1 ? '' : 's'}`;
+}
+
+/** Cents -> "0.50" for a form field. */
+export function centsToInput(cents) {
+  return (cents / 100).toFixed(2);
+}
+
+/** "0.5" or "12.50" -> cents (50, 1250); null if it isn't a valid amount. */
+export function dollarsToCents(text) {
+  const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(text.trim());
+  if (!match) return null;
+  return parseInt(match[1], 10) * 100 + parseInt((match[2] || '').padEnd(2, '0') || '0', 10);
+}
+
+/** "Earned today" line: "10 pts · $0.50", or "Nothing yet". */
+export function earnedText(earned) {
+  const parts = [];
+  if (earned.points) parts.push(formatValue(earned.points, 'points'));
+  if (earned.money) parts.push(formatValue(earned.money, 'money'));
+  return parts.length ? parts.join(' · ') : 'Nothing yet';
+}
+
+/** '18:00' -> '6:00 PM' */
+export function formatClock(hhmm) {
+  const [h24, m] = hhmm.split(':').map(Number);
+  return `${((h24 + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h24 < 12 ? 'AM' : 'PM'}`;
+}
+
+/** '2026-12-01 15:12:00' (household-local) -> '3:12 PM' */
+export function formatLocalTime(sql) {
+  return formatClock(sql.slice(11, 16));
+}
+
+function dateFromDay(day) {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/** "Due Sun" if it's within the coming week, otherwise "Due Dec 20". `today` is the household's day. */
+export function formatDue(dueDate, today) {
+  const days = Math.round((dateFromDay(dueDate) - dateFromDay(today)) / 86400000);
+  const date = dateFromDay(dueDate);
+  if (days >= 0 && days < 7) return 'Due ' + date.toLocaleDateString(undefined, { weekday: 'short' });
+  return 'Due ' + date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+export const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+/** [1,2,3,4,5,6,7] -> "Every day"; [1,2,3,4,5] -> "Weekdays"; else "Mon, Wed". */
+export function describeDays(days) {
+  if (days.length === 7) return 'Every day';
+  if (days.join() === '1,2,3,4,5') return 'Weekdays';
+  if (days.join() === '6,7') return 'Weekends';
+  return days.map((d) => DAY_NAMES[d - 1]).join(', ');
+}
+
+/** A small pop-up asking for an optional note. Resolves to the text ('' is fine) or null if cancelled. */
+export function askNote(title, placeholder) {
+  return new Promise((resolve) => {
+    const dialog = h('dialog', {});
+    const input = h('input', { maxlength: 200, placeholder, autocomplete: 'off' });
+    let answer = null;
+    const form = h('form', { method: 'dialog' },
+      h('h2', {}, title),
+      input,
+      h('div', { class: 'row', style: 'margin-top:16px' },
+        h('button', { type: 'submit', onclick: () => { answer = input.value.trim(); } }, 'Send back'),
+        h('button', { type: 'button', class: 'secondary', onclick: () => dialog.close() }, 'Cancel')));
+    dialog.append(form);
+    dialog.addEventListener('close', () => { dialog.remove(); resolve(answer); });
+    document.body.append(dialog);
+    dialog.showModal();
+    input.focus();
+  });
+}

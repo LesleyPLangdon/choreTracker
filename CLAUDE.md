@@ -52,14 +52,22 @@ On the server, only `web/` is public; `api/`, `db/`, `scripts/`, and `config.php
 ## Where we left off
 *(Update this at the end of every session.)*
 
-**Phase 1 (Foundation) built.** Done: full schema (4 migrations), migration runner (CLI + key-protected browser
-fallback), parent register/login/logout/me, household settings (name, time zone, end-of-day), parent invites, kids
-(create/edit/deactivate/PIN), kid link + PIN login with 5-miss/15-minute lockout and parent unlock, link reset, seed/
-reset scripts with the test-site guard, `Clock` + `HouseholdTime`, an append-only `Ledger` helper, the vanilla JS
-front end, `.cpanel.yml` deploy, dev container, and PHPUnit tests (all passing).
-Notes / open points:
-- A kid's link is shown only when created or reset (only its hash is stored, per the prompt), so the Kids screen
-  can't re-show an old link; parents use "New link" to get a fresh one.
-- Phase 1 is deployed to the Bluehost test site and tested there (Nov 23), so it has run on real PHP 8.4 +
-  Percona 5.7.
-- Next: Phase 2 (Chores) — follow `docs/prompts/phase-2.md`.
+**Phase 1 (Foundation)** is built, deployed to the Bluehost test site, and tested there (real PHP 8.4 + Percona 5.7).
+Notes: a kid's link is shown only when created or reset (only its hash is stored), so parents use "New link" for a
+fresh one. `scripts/deploy-cpanel.sh` never overwrites an existing web-root `.htaccess` (cPanel keeps the PHP version
+there — overwriting it once dropped the site to an old PHP).
+
+**Phase 2 (Chores) is built and tested in the cloud environment, but NOT yet deployed to the test site.**
+Done: migration `005` (send-back note, slot `active`); `ChoreInput`/`ChoreService` (create per kid with a shared
+`group_id`, edit one/all copies, remove = deactivate); `InstanceService` (on-demand idempotent instances, report/undo,
+approve/send back/mark done, approvals list + count, pending earnings via `Ledger`); API endpoints (`/chores`,
+`/kid/today`, `/kids/{id}/today`, `/instances/{id}/...`, `/approvals`); demo chores in the seed; front end (Chores list and
+form, Home approvals + badge, parent's kid-day view, kid's today list, ~1-minute refresh + foreground refresh +
+Refresh buttons). 87 PHPUnit tests pass (MariaDB 10.11 + PHP 8.3 in the cloud; not yet run on MySQL 5.7/PHP 8.4).
+**The test site needs migration 005:** `php scripts/migrate.php`. To see the new demo chores she must also run
+`php scripts/reset.php` (it wipes the demo data), because `seed.php` skips an existing demo household.
+Decisions made where the prompt was silent (flagged to Lesley): editing can't switch repeating ↔ one-time or change
+which kids a chore is assigned to; a parent's "Mark done" is never flagged late; "late" means strictly after due-by;
+earnings for one-time chores belong to the day reported; chores only appear from the day they're created (no back-creation
+of past days — Phase 3 must create/mark missed instances for days nobody opened the app).
+Next: Phase 3 (Rules) — required chores, lock/unlock, end-of-day forfeit, missed/expired, back-fill, override.
