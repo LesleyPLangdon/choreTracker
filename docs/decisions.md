@@ -185,7 +185,11 @@
 ## 14. Extras & business (planning after Phase 4)
 - **Gamification (Nov 24):** avatars the kid can **earn or buy skins for**, and/or **play games with**. Certainly a paid feature; Lesley wants to start on it soon.
 - **Sites:** keep the current Bluehost test site as **Lesley's family's own site** (also used to try improvements); make a **new site for distribution**.
-- **Naming conversation** coming soon.
+- **Name (chosen Nov 24): First Mate**, with a subtitle that includes "chore" and says it's collaborative (subtitle not final).
+  - Why: the parent is captain (sets the course, can override anything); the kid is first mate (real responsibility, steers their own day, more of the wheel over time). Ties to the Staying at the Helm philosophy: "Being in the loop means you check. Being at the helm means you decide."
+  - Candidate tagline: "You set the course. They learn to steer." Earlier candidate: "Earn it, then unlock it."
+  - **Gamification fits the name:** avatar as a crew member, skins as uniforms and gear, ranks that grow with responsibility (Deckhand → Able Seaman → First Mate), challenges as voyages, goals as treasure. This should shape the Phase 5 visual theme.
+  - **Before committing:** existing App Store apps already use "First Mate" (two boating apps, and Mercury Marine's "1st-Mate" boat system), so the store listing needs a longer unique name (e.g., "First Mate: Family Chores"). Check the domain, App Store/Google Play, and a USPTO trademark search.
 
 ## v1 scope
 **In:** household with multiple parents + time zone; kid profiles with link + PIN; chores (daily with day picker, one-off with due date, slots with optional available-from and soft due-by times, points or money); completion/approval flow with per-chore auto-approve; late flag; required chores with lock/unlock and forfeit; overdue behavior; back-fill; parent override; buckets; Spending; one goal per kid; rewards (parent-defined, kid requests, parent approves); challenges (one-time, daily, or weekly windows); in-app approval list; one theme; plan field.
@@ -193,7 +197,7 @@
 **Later:** multiple goals, extra themes, age-based layouts, kid auto-split, fuller rewards store, shared chores, "today only" schedule changes, special-use-case settings, push notifications (with phone app), longer history, billing.
 
 ## Open / next up
-- **Name:** naming conversation soon.
+- **Name:** First Mate (chosen Nov 24); subtitle and availability checks pending.
 - **Phases 1–3:** built, merged, and deployed to the test site (Phase 3 merged Nov 23).
 - **Phase 4:** built (PR #4, Nov 24), including the settle-failure warning. Next: merge, deploy, run migrations 007 and 008 and the reset, and test with the family.
 - **After Phase 4:** plan the extras (gamification and the smaller ideas), then decide free vs. paid.
