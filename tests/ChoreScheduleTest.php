@@ -3,12 +3,9 @@ declare(strict_types=1);
 
 namespace Tests;
 
-use App\Chores\ChoreService;
-use App\Chores\InstanceCreator;
 use App\Chores\InstanceService;
 use App\Database;
-use App\Ledger;
-use App\Rules\DayRules;
+use App\Services;
 
 /** Which chores show up when: schedules, slots, one-time chores, on-demand creation, time zones. */
 final class ChoreScheduleTest extends ApiTestCase
@@ -27,9 +24,7 @@ final class ChoreScheduleTest extends ApiTestCase
 
     private function instanceService(\PDO $pdo): InstanceService
     {
-        $chores = new ChoreService($pdo, $this->clock);
-        $ledger = new Ledger($pdo, $this->clock);
-        return new InstanceService($pdo, $this->clock, $ledger, $chores, new InstanceCreator($pdo, $this->clock, $chores), new DayRules($pdo, $this->clock, $ledger, $chores));
+        return (new Services($pdo, $this->clock))->instances;
     }
 
     public function testRepeatingChoreAppearsOnlyOnScheduledDays(): void

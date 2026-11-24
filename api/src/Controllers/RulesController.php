@@ -68,8 +68,8 @@ final class RulesController extends BaseController
         if (!is_int($amount)) {
             throw new ApiException(422, 'Enter a whole amount (cents for money).');
         }
-        $spending = $this->overrides->adjustBalance($ctx['household_id'], $ctx['parent_id'], (int) $p['id'], (string) $r->input('currency', ''), $amount, $r->str('note'));
-        return new Response(200, ['spending' => $spending]);
+        $balances = $this->overrides->adjustBalance($ctx['household_id'], $ctx['parent_id'], (int) $p['id'], (string) $r->input('currency', ''), $amount, $r->str('note'), (string) $r->input('bucket', 'spending'));
+        return new Response(200, ['spending' => $balances['spending'], 'balances' => $balances]);
     }
 
     /** The kid taps OK on the "yesterday's earnings didn't unlock" note. */

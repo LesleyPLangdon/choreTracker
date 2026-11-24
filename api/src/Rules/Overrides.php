@@ -10,6 +10,7 @@ use App\Clock;
 use App\Http\ApiException;
 use App\Ledger;
 use App\HouseholdTime;
+use App\Money\Wallet;
 use DateTimeImmutable;
 use DateTimeZone;
 use PDO;
@@ -31,6 +32,7 @@ final class Overrides
         private InstanceCreator $creator,
         private InstanceService $instances,
         private DayRules $rules,
+        private Wallet $wallet,
     ) {}
 
     // ---- back-fill -----------------------------------------------------------------------------------
@@ -142,12 +144,15 @@ final class Overrides
     }
 
     /**
-     * Offset an earning wherever the day's money currently is: still pending (locked), already moved to Spending
-     * (refused if it has been spent), or forfeited (the forfeit is offset too, so the day's totals stay consistent).
+     * Offset an earning wherever the day's money currently is: still pending (locked); forfeited (the forfeit is offset
+     * too, so the day's totals stay consistent); or already unlocked, in which case it is taken back from Spending,
+     * Savings, and Giving in the proportions the day was split (refused if any of it has been spent or moved on).
      */
     private function takeBack(int $householdId, int $parentId, int $kidId, int $instanceId, string $day, string $currency, int $amount): void
     {
-        $ref = ['chore_instance_id' => $instanceId, 'local_date' => $day, 'note' => 'Approval undone', 'created_by_type' => 'parent', 'created_by_id' => $parentId];
+        $batch = $this->ledger->newBatch();
+        $ref = ['chore_instance_id' => $instanceId, 'local_date' => $day, 'note' => 'Approval undone', 'created_by_type' => 'parent',
+            'created_by_id' => $parentId, 'batch' => $batch, 'action' => 'earning_undone'];
         $pending = $this->rules->pendingNet($kidId, $day)[$currency] ?? 0;
         if ($pending >= $amount) {
             $this->ledger->append($householdId, $kidId, $currency, 'pending', 'earning', -$amount, $ref);
@@ -157,13 +162,43 @@ final class Overrides
         $forfeited->execute([$kidId, $day, $currency]);
         if (-(int) $forfeited->fetchColumn() >= $amount) {
             $this->ledger->append($householdId, $kidId, $currency, 'pending', 'earning', -$amount, $ref);
-            $this->ledger->append($householdId, $kidId, $currency, 'pending', 'forfeit', $amount, ['local_date' => $day, 'note' => 'Forfeit offset: approval undone', 'created_by_type' => 'parent', 'created_by_id' => $parentId]);
+            $this->ledger->append($householdId, $kidId, $currency, 'pending', 'forfeit', $amount, ['local_date' => $day, 'note' => 'Forfeit offset: approval undone',
+                'created_by_type' => 'parent', 'created_by_id' => $parentId, 'batch' => $batch, 'action' => 'earning_undone']);
             return;
         }
-        if ($this->ledger->balance($kidId, $currency, 'spending') < $amount) {
-            throw new ApiException(409, "That money has already been spent, so the approval can't be undone.");
+        // Already unlocked: work out how much of this amount went to each bucket when the day was split.
+        $sums = $this->pdo->prepare(
+            "SELECT bucket, entry_type, SUM(amount) AS total FROM ledger_entries
+             WHERE kid_id = ? AND local_date = ? AND currency = ? AND bucket IN ('pending', 'savings', 'giving') AND entry_type IN ('unlock', 'bucket_split')
+             GROUP BY bucket, entry_type"
+        );
+        $sums->execute([$kidId, $day, $currency]);
+        $moved = 0;
+        $split = ['savings' => 0, 'giving' => 0];
+        foreach ($sums->fetchAll() as $r) {
+            if ($r['bucket'] === 'pending') {
+                $moved += -(int) $r['total'];
+            } else {
+                $split[$r['bucket']] += (int) $r['total'];
+            }
         }
-        $this->ledger->append($householdId, $kidId, $currency, 'spending', 'earning', -$amount, $ref);
+        $take = ['savings' => 0, 'giving' => 0];
+        if ($moved > 0) {
+            foreach (['savings', 'giving'] as $bucket) {
+                $take[$bucket] = min($amount, intdiv(max(0, $split[$bucket]) * $amount, $moved));
+            }
+        }
+        $take['spending'] = $amount - $take['savings'] - $take['giving'];
+        foreach ($take as $bucket => $part) {
+            if ($part > 0 && $this->ledger->balance($kidId, $currency, $bucket) < $part) {
+                throw new ApiException(409, "That money has already been spent or moved, so the approval can't be undone.");
+            }
+        }
+        foreach ($take as $bucket => $part) {
+            if ($part > 0) {
+                $this->ledger->append($householdId, $kidId, $currency, $bucket, 'earning', -$part, $ref);
+            }
+        }
     }
 
     public function clearLate(int $householdId, int $parentId, int $instanceId, ?string $note): array
@@ -183,31 +218,11 @@ final class Overrides
 
     // ---- balance adjustment ----------------------------------------------------------------------------
 
-    /** Add or subtract points or money (cents) from Spending, with a note. Spending can't go below zero. */
-    public function adjustBalance(int $householdId, int $parentId, int $kidId, string $currency, int $amount, string $note): array
+    /** Add or subtract from Spending, Savings, or Giving, with a note. Never below zero (see Wallet). */
+    public function adjustBalance(int $householdId, int $parentId, int $kidId, string $currency, int $amount, string $note, string $bucket = 'spending'): array
     {
         $this->requireKid($householdId, $kidId);
-        if (!in_array($currency, ['points', 'money'], true)) {
-            throw new ApiException(422, 'Choose points or money.');
-        }
-        if ($amount === 0 || abs($amount) > ($currency === 'points' ? 100000 : 1000000)) {
-            throw new ApiException(422, 'Enter an amount to add or subtract.');
-        }
-        $note = trim($note);
-        if ($note === '' || mb_strlen($note) > 200) {
-            throw new ApiException(422, 'Add a short note explaining the change.');
-        }
-        return $this->inTransaction(function () use ($householdId, $parentId, $kidId, $currency, $amount, $note) {
-            // Serialize adjustments for this kid, then check the balance we are about to change.
-            $this->pdo->prepare('SELECT id FROM kids WHERE id = ? FOR UPDATE')->execute([$kidId]);
-            if ($this->ledger->balance($kidId, $currency, 'spending') + $amount < 0) {
-                throw new ApiException(422, "That would take Spending below zero.");
-            }
-            $this->ledger->append($householdId, $kidId, $currency, 'spending', 'parent_adjustment', $amount, [
-                'note' => $note, 'created_by_type' => 'parent', 'created_by_id' => $parentId,
-            ]);
-            return $this->instances->spending($kidId);
-        });
+        return $this->wallet->adjust($householdId, $parentId, $kidId, $bucket, $currency, $amount, $note);
     }
 
     // ---- history --------------------------------------------------------------------------------------

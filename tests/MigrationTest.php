@@ -12,7 +12,7 @@ final class MigrationTest extends ApiTestCase
         $tables = $this->pdo->query('SHOW TABLES')->fetchAll(\PDO::FETCH_COLUMN);
         foreach (['households', 'parents', 'parent_invites', 'kids', 'auth_tokens', 'chores', 'chore_slots', 'chore_instances',
                   'kid_days', 'ledger_entries', 'bucket_settings', 'goals', 'rewards', 'reward_requests',
-                  'challenges', 'challenge_chores', 'challenge_periods', 'schema_migrations'] as $t) {
+                  'challenges', 'challenge_chores', 'challenge_periods', 'day_events', 'reward_kids', 'schema_migrations'] as $t) {
             $this->assertContains($t, $tables, $t);
         }
         $this->assertSame([], (new Migrator($this->pdo, dirname(__DIR__) . '/db/migrations'))->run());

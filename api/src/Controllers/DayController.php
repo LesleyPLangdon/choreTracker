@@ -4,7 +4,9 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Auth;
+use App\Approvals\ApprovalList;
 use App\Chores\InstanceService;
+use App\Money\Summary;
 use App\Clock;
 use App\Config;
 use App\Http\ApiException;
@@ -15,7 +17,7 @@ use PDO;
 /** Today's lists, the kid's Done/Undo, and the parent's approvals. */
 final class DayController extends BaseController
 {
-    public function __construct(PDO $pdo, Config $config, Clock $clock, Auth $auth, private InstanceService $instances)
+    public function __construct(PDO $pdo, Config $config, Clock $clock, Auth $auth, private InstanceService $instances, private ApprovalList $approvalList, private Summary $summary)
     {
         parent::__construct($pdo, $config, $clock, $auth);
     }
@@ -30,6 +32,7 @@ final class DayController extends BaseController
         $kid = $stmt->fetch();
         $day = $this->instances->dayFor($ctx['household_id'], $ctx['kid_id']);
         $day['notices'] = $this->notices($ctx['kid_id'], $day['today']);
+        $day['summary'] = $this->summary->forKid($ctx['household_id'], $ctx['kid_id']);
         return new Response(200, ['kid' => ['id' => (int) $kid['id'], 'nickname' => $kid['nickname'], 'avatar' => $kid['avatar']]] + $day);
     }
 
@@ -107,12 +110,12 @@ final class DayController extends BaseController
         $failed = $this->pdo->prepare('SELECT settle_failed_at FROM households WHERE id = ?');
         $failed->execute([$ctx['household_id']]);
         // settle_failed: past days couldn't be updated; the screen shows a warning until a later settle succeeds.
-        return new Response(200, $this->instances->approvals($ctx['household_id']) + ['settle_failed' => $failed->fetchColumn() !== null]);
+        return new Response(200, $this->approvalList->forHousehold($ctx['household_id']) + ['settle_failed' => $failed->fetchColumn() !== null]);
     }
 
     public function approvalCount(Request $r): Response
     {
         $ctx = $this->parent($r);
-        return new Response(200, ['count' => $this->instances->approvalCount($ctx['household_id'])]);
+        return new Response(200, ['count' => $this->approvalList->count($ctx['household_id'])]);
     }
 }

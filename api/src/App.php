@@ -3,24 +3,23 @@ declare(strict_types=1);
 
 namespace App;
 
-use App\Chores\ChoreService;
-use App\Chores\InstanceCreator;
-use App\Chores\InstanceService;
 use App\Controllers\AccountController;
+use App\Controllers\ChallengeController;
 use App\Controllers\ChoreController;
 use App\Controllers\DayController;
+use App\Controllers\GoalController;
 use App\Controllers\HouseholdController;
 use App\Controllers\InviteController;
 use App\Controllers\KidAuthController;
 use App\Controllers\KidController;
+use App\Controllers\MoneyController;
+use App\Controllers\RewardController;
 use App\Controllers\RulesController;
 use App\Controllers\StatusController;
 use App\Http\ApiException;
 use App\Http\Request;
 use App\Http\Response;
 use App\Http\Router;
-use App\Rules\DayRules;
-use App\Rules\Overrides;
 use App\Rules\Settler;
 use PDO;
 
@@ -28,6 +27,7 @@ use PDO;
 final class App
 {
     public readonly Auth $auth;
+    public readonly Services $services;
     public readonly Settler $settler;
     private Router $router;
 
@@ -42,6 +42,11 @@ final class App
                 $this->settler->settleHousehold($householdId);
             } catch (\Throwable $e) {
                 error_log('Chore Tracker settle error: ' . $e); // never block the request itself
+            }
+            try {
+                $this->services->challenges->refreshHousehold($householdId); // challenge periods are made on demand too
+            } catch (\Throwable $e) {
+                error_log('Chore Tracker challenge error: ' . $e);
             }
         });
     }
@@ -97,17 +102,17 @@ final class App
         $invites = new InviteController(...$args);
         $kids = new KidController(...$args);
         $kidAuth = new KidAuthController(...$args);
-        $choreService = new ChoreService($this->pdo, $this->clock);
-        $ledger = new Ledger($this->pdo, $this->clock);
-        $creator = new InstanceCreator($this->pdo, $this->clock, $choreService);
-        $rules = new DayRules($this->pdo, $this->clock, $ledger, $choreService);
-        $instanceService = new InstanceService($this->pdo, $this->clock, $ledger, $choreService, $creator, $rules);
-        $overrides = new Overrides($this->pdo, $this->clock, $ledger, $choreService, $creator, $instanceService, $rules);
-        $this->settler = new Settler($this->pdo, $this->clock, $choreService, $creator, $rules);
-        $choreCtl = new ChoreController(...$args, ...[$choreService, $instanceService]);
-        $dayCtl = new DayController(...$args, ...[$instanceService]);
-        $rulesCtl = new RulesController(...$args, ...[$overrides]);
+        $this->services = new Services($this->pdo, $this->clock);
+        $sv = $this->services;
+        $this->settler = $sv->settler;
+        $choreCtl = new ChoreController(...$args, ...[$sv->chores, $sv->instances]);
+        $dayCtl = new DayController(...$args, ...[$sv->instances, $sv->approvals, $sv->summary]);
+        $rulesCtl = new RulesController(...$args, ...[$sv->overrides]);
         $statusCtl = new StatusController(...$args);
+        $goalCtl = new GoalController(...$args, ...[$sv]);
+        $rewardCtl = new RewardController(...$args, ...[$sv]);
+        $challengeCtl = new ChallengeController(...$args, ...[$sv]);
+        $moneyCtl = new MoneyController(...$args, ...[$sv]);
         $r = $this->router;
 
         $r->add('POST', '/register', [$account, 'register']);
@@ -153,6 +158,51 @@ final class App
         $r->add('POST', '/instances/{id}/undo-approval', [$rulesCtl, 'undoApproval']);
         $r->add('POST', '/instances/{id}/clear-late', [$rulesCtl, 'clearLate']);
         $r->add('POST', '/kid/days/{date}/ack', [$rulesCtl, 'ackNotice']);
+
+        // Money (Phase 4): parent
+        $r->add('GET', '/kids/{id}/money', [$moneyCtl, 'overview']);
+        $r->add('GET', '/kids/{id}/buckets', [$moneyCtl, 'buckets']);
+        $r->add('PUT', '/kids/{id}/buckets', [$moneyCtl, 'setBuckets']);
+        $r->add('POST', '/kids/{id}/payout', [$moneyCtl, 'payout']);
+        $r->add('POST', '/kids/{id}/savings-transfer', [$moneyCtl, 'savingsTransfer']);
+        $r->add('POST', '/kids/{id}/giving', [$moneyCtl, 'givingGiven']);
+        $r->add('GET', '/kids/{id}/activity', [$moneyCtl, 'activity']);
+        $r->add('GET', '/kids/{id}/goals', [$goalCtl, 'index']);
+        $r->add('POST', '/kids/{id}/goals', [$goalCtl, 'create']);
+        $r->add('PUT', '/goals/{id}', [$goalCtl, 'update']);
+        $r->add('POST', '/goals/{id}/approve', [$goalCtl, 'approve']);
+        $r->add('POST', '/goals/{id}/deny', [$goalCtl, 'deny']);
+        $r->add('POST', '/goals/{id}/approve-change', [$goalCtl, 'approveChange']);
+        $r->add('POST', '/goals/{id}/deny-change', [$goalCtl, 'denyChange']);
+        $r->add('POST', '/goals/{id}/used', [$goalCtl, 'used']);
+        $r->add('POST', '/goals/{id}/cancel', [$goalCtl, 'cancel']);
+        $r->add('GET', '/rewards', [$rewardCtl, 'index']);
+        $r->add('POST', '/rewards', [$rewardCtl, 'create']);
+        $r->add('PUT', '/rewards/{id}', [$rewardCtl, 'update']);
+        $r->add('DELETE', '/rewards/{id}', [$rewardCtl, 'remove']);
+        $r->add('POST', '/reward-requests/{id}/approve', [$rewardCtl, 'approve']);
+        $r->add('POST', '/reward-requests/{id}/deny', [$rewardCtl, 'deny']);
+        $r->add('POST', '/reward-requests/{id}/delivered', [$rewardCtl, 'delivered']);
+        $r->add('GET', '/challenges', [$challengeCtl, 'index']);
+        $r->add('POST', '/challenges', [$challengeCtl, 'create']);
+        $r->add('DELETE', '/challenges/{id}', [$challengeCtl, 'remove']);
+        $r->add('POST', '/challenge-periods/{id}/earned', [$challengeCtl, 'earned']);
+        $r->add('POST', '/challenge-periods/{id}/missed', [$challengeCtl, 'missed']);
+        $r->add('POST', '/challenge-periods/{id}/delivered', [$challengeCtl, 'delivered']);
+
+        // Money (Phase 4): kid
+        $r->add('GET', '/kid/summary', [$moneyCtl, 'kidSummary']);
+        $r->add('GET', '/kid/activity', [$moneyCtl, 'kidActivity']);
+        $r->add('GET', '/kid/goals', [$goalCtl, 'kidIndex']);
+        $r->add('POST', '/kid/goals', [$goalCtl, 'kidCreate']);
+        $r->add('PUT', '/kid/goals/{id}', [$goalCtl, 'kidEdit']);
+        $r->add('POST', '/kid/goals/{id}/move', [$goalCtl, 'kidMove']);
+        $r->add('POST', '/kid/goals/{id}/cancel', [$goalCtl, 'kidCancel']);
+        $r->add('GET', '/kid/rewards', [$rewardCtl, 'kidIndex']);
+        $r->add('POST', '/kid/rewards/{id}/request', [$rewardCtl, 'kidRequest']);
+        $r->add('POST', '/kid/rewards/{id}/save', [$rewardCtl, 'kidSave']);
+        $r->add('POST', '/kid/reward-requests/{id}/cancel', [$rewardCtl, 'kidCancel']);
+        $r->add('GET', '/kid/challenges', [$challengeCtl, 'kidIndex']);
 
         $r->add('GET', '/kid/today', [$dayCtl, 'kidToday']);
         $r->add('POST', '/kid/instances/{id}/done', [$dayCtl, 'kidDone']);
