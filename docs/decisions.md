@@ -55,6 +55,8 @@
 - **Money is a ledger only.** The app tracks earned / owed / paid out; real money changes hands in real life. No payment processing.
 - The kid sees a **running total of what they've earned**, separate from goals.
 - **Rounding:** points are whole numbers. Money is stored in cents. When bucket percentages don't divide evenly, the remainder goes to Spending.
+- **How families use them (Nov 24):** a common pattern is **points for everyday expectations** (make bed, brush teeth, homework), spent on rewards, and **money for extra jobs** (raking leaves, cleaning cabinets), saved, put toward goals, or paid out.
+- **Different kids can use different currencies** (a 5-year-old on points only, a 12-year-old earning money). No per-kid currency setting: a kid's screens show a currency only if that kid has a chore, balance, goal, or bucket setting in it.
 
 ## 3. Where earnings go
 **Order of operations:**
@@ -62,10 +64,14 @@
 2. On unlock, **parent-set buckets come off the top automatically** (e.g., 10% Savings, 10% Giving). Kid can't touch them.
    - A parent **Savings** bucket represents money moving into a real savings account (the parent marks it transferred).
    - **Giving** bucket for charitable giving.
-   - *Working assumption:* bucket percentages are set per kid, per currency.
+   - **Bucket percentages are set per kid, per currency** (confirmed Nov 24). Default 0%.
+   - **Savings = long-term savings.** The kid sees it but can't move it; the parent marks amounts transferred to a real account. **Giving:** the parent marks amounts given.
 3. The remainder lands in the kid's **Spending** balance.
 4. The kid **moves from Spending into goals** when they choose (envelope-style). This decides "what goes in which pile" when there are multiple goals.
 - **Forfeited days never reach the buckets.**
+- **Payouts (decided Nov 24):** money only. The parent records a payout ("I gave her $5"), which comes out of Spending. Points leave through rewards, goals, or parent adjustments.
+- Parents can adjust any bucket with a note, never below zero.
+- Both parents and kids see a plain-language **activity list** built from the ledger.
 - *Later/paid idea:* kid-set auto-split into goals.
 
 ## 4. Savings goals
@@ -74,10 +80,17 @@
 - **Kid creates the goal, parent approves.**
 - **Free: one active goal per kid. Paid: several.**
 - **Parent is notified when a goal is reached** (in-app for v1; see Notifications).
+- **Goals vs. Savings (Nov 24):** Savings is long-term; a goal is saving for something specific. Goal money is the kid's own money set aside from Spending, and the purchase comes out of the goal.
+- The kid can move money back from a goal into Spending (visible in the activity list). Cancelling a goal returns its balance to Spending.
+- When a goal is reached, the parent marks it **Used**; that takes the goal's balance out (any extra goes back to Spending). A parent can mark it used early (override).
+- Parents can also create a goal for a kid directly.
 
 ## 5. Rewards (v1 — base feature)
 - **Parent creates rewards** the kid can earn, each with a name and a value.
-- A reward is priced in one currency (same as goals).
+- A reward is priced in one currency (same as goals). **Usually points**; money pricing is there for families that work only in dollars (Nov 24).
+- Parents can limit a reward to certain kids (default: all kids).
+- A kid can request only if Spending covers the price; the price comes out on approval. Kids can cancel a request before approval.
+- **"Save for this":** for a reward that costs more than the kid has, the kid can start a goal for it (auto-approved, since the parent created the reward). When reached, the reward is paid from the goal first.
 - **Flow:** kid picks a reward → request → parent approves → value comes out of the kid's **Spending** → parent delivers it in real life.
 - *Later/paid ideas:* a fuller rewards store (categories, images, kid wish lists).
 
@@ -159,9 +172,16 @@
 
 ## 13. Free vs. paid (sketch — not final)
 - Principle: Free is genuinely useful for one family; paid adds scale, convenience, and fun.
-- Decided: goals (1 free / several paid). Basic rewards list and challenges are in v1.
-- Candidates for paid: more kids, multiple goals, extra themes, kid auto-split, longer history, a fuller rewards store, more active challenges, **special-use-case settings under "More options."**
+- **Lesley's instinct (Nov 24): don't limit the number of kids; limit features.**
+- Decided: goals (1 active free / several paid). Basic rewards list and challenges are in v1.
+- Candidates for paid: multiple goals, extra themes, kid auto-split, longer history, a fuller rewards store, more active challenges, special-use-case settings under "More options," and **gamification** (see 14).
+- The smaller ideas need to be filled in before free vs. paid is decided. Plan: after Phase 4, make a solid plan for the extras, then decide free vs. paid.
 - Existing tier names from her other apps (Free → Plus → Plenty) may or may not carry over.
+
+## 14. Extras & business (planning after Phase 4)
+- **Gamification (Nov 24):** avatars the kid can **earn or buy skins for**, and/or **play games with**. Certainly a paid feature; Lesley wants to start on it soon.
+- **Sites:** keep the current Bluehost test site as **Lesley's family's own site** (also used to try improvements); make a **new site for distribution**.
+- **Naming conversation** coming soon.
 
 ## v1 scope
 **In:** household with multiple parents + time zone; kid profiles with link + PIN; chores (daily with day picker, one-off with due date, slots with optional available-from and soft due-by times, points or money); completion/approval flow with per-chore auto-approve; late flag; required chores with lock/unlock and forfeit; overdue behavior; back-fill; parent override; buckets; Spending; one goal per kid; rewards (parent-defined, kid requests, parent approves); challenges (one-time, daily, or weekly windows); in-app approval list; one theme; plan field.
@@ -169,7 +189,7 @@
 **Later:** multiple goals, extra themes, age-based layouts, kid auto-split, fuller rewards store, shared chores, "today only" schedule changes, special-use-case settings, push notifications (with phone app), longer history, billing.
 
 ## Open / next up
-- **Name:** not yet. Lesley thinks the difference is the combination of features; revisit once the family has used it.
-- **Phase 1:** built, deployed to the Bluehost test site, and tested (Nov 23).
-- **Phase 2:** built, merged, and deployed to the test site (Nov 23).
-- **Phase 3:** built (PR #3, Nov 23). Next: merge, deploy, run migration and reset, test with simulated time and the family. Open item: settle errors should be visible to parents, not only logged.
+- **Name:** naming conversation soon.
+- **Phases 1–3:** built, merged, and deployed to the test site (Phase 3 merged Nov 23).
+- **Phase 4:** prompt written (`docs/prompts/phase-4.md`, Nov 24); it also includes the settle-failure warning fix. Next: run it in Claude Code, merge, deploy, and test.
+- **After Phase 4:** plan the extras (gamification and the smaller ideas), then decide free vs. paid.
