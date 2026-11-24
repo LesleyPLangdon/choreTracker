@@ -112,6 +112,8 @@
   - Ready for school by 7:30 → 30 minutes of TV after school. Three chores (dressed, teeth, backpack), target 3, daily on weekdays, 6:00–7:30 AM.
 - Challenges are also how the app rewards being **on time** — a positive framing instead of penalizing lateness.
 
+- **Phase 4 build details (accepted Nov 24):** a challenge created while its window is already open counts everything reported in that window; a daily window must end the same day it starts; challenges can be created and removed but not yet edited (later improvement); the bucket split rounds each share down on each unlock, with the rest to Spending, so very small amounts can give 0 to Savings or Giving; a kid's Goals link always shows, Rewards and Challenges only when there are any.
+
 ## 7. Chores
 - **Daily (recurring)** and **occasional (one-off)** chores.
 - **Scheduling (v1):** daily chores have a day-of-week picker (covers "weekdays only" and "weekly on Saturday"). One-off chores have an optional due date.
@@ -193,5 +195,5 @@
 ## Open / next up
 - **Name:** naming conversation soon.
 - **Phases 1–3:** built, merged, and deployed to the test site (Phase 3 merged Nov 23).
-- **Phase 4:** prompt written (`docs/prompts/phase-4.md`, Nov 24); it also includes the settle-failure warning fix. Next: run it in Claude Code, merge, deploy, and test.
+- **Phase 4:** built (PR #4, Nov 24), including the settle-failure warning. Next: merge, deploy, run migrations 007 and 008 and the reset, and test with the family.
 - **After Phase 4:** plan the extras (gamification and the smaller ideas), then decide free vs. paid.
