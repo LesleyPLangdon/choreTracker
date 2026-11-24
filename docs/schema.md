@@ -183,3 +183,61 @@ spent), undo an approval (refused if the money was already spent), clear a late 
 (`parent_adjustment`, any time, note required) can't take Spending below zero.
 A back-filled instance's `reported_at` is the moment the parent recorded it.
 
+**Settle failures (migration `007`).** If settling a household fails, `Settler` records `households.settle_failed_at`
+(and rethrows; the request itself carries on, so the app keeps working). `GET /approvals` returns `settle_failed: true`
+while it is set, and the parent's Home screen shows "Some past days couldn't be updated — tell Lesley". The next settle
+that completes without error (including one that finds nothing left to do) clears it. `scripts/settle.php` records and
+reports the failure the same way and exits non-zero.
+
+## Money flow (Phase 4, migration `008`)
+
+**Changes:** `goals` gains `link`, `pending_link` / `pending_link_set` / `pending_target` / `change_requested_at` (a kid's change to
+an approved goal waits for a parent), `reward_id` (a "Save for this" goal), `decision_note`, `used_at`, and statuses `denied` and
+`used`. New `reward_kids` (which kids can see a reward; no rows = every kid). `reward_requests` gains `decision_note` and status
+`cancelled`. `ledger_entries` gains `batch_id` (groups the entries of ONE move) and `action` (what kind of move). Both exist only to
+word the activity list; balances ignore them.
+
+**Buckets.** `bucket_settings` holds Savings % and Giving % per kid per currency (0/0 = no row). On unlock, `DayRules::moveToSpending`
+takes `floor(amount × %)` for Savings and for Giving (whole points / cents) and puts the rest, including rounding, in Spending, as
+`bucket_split` entries (`savings`, `giving`) beside the `unlock` entries (`pending` out, `spending` in). The split is applied to each
+move (each unlock). Every route to an unlock splits alike: approval, end of day, back-fill, a manual unlock. Forfeited days never
+reach any bucket. Reversals also work across buckets: forfeiting an unlocked day claws back from Spending, Savings and Giving
+(refused if any was spent or moved), and undoing an approval takes the money back in the proportions the day was split.
+- **Savings** is long-term: the kid sees it but can't move it. A parent's **Mark transferred** is a `payout_transfer` out of Savings.
+- **Giving**: **Mark given** is a `payout_transfer` out of Giving.
+- **Payout** (money only): `payout_transfer` out of Spending, never more than the balance.
+- **Adjustments** (`parent_adjustment`, note required) can target Spending, Savings or Giving and never go below zero.
+
+**Goals.** A goal's money sits in the `goal` bucket tagged with `goal_id`; its balance is `SUM(amount)` for that goal. A kid's goal
+starts as `requested` (parent approves or denies, optionally fixing the name, price or link first); a parent-created goal, or a "Save for
+this" goal, starts `active`. The free plan allows one live goal (requested, active or reached) per kid (`Money\Plans`). Moves are
+`goal_transfer` entries: Spending → goal, goal → Spending, and goal → goal (same currency only), each never more than what's there. When
+the balance reaches the price the goal becomes `reached` (and shows in the approvals list); taking money out or raising the price turns
+it back to `active`. **Mark used** takes up to the price out of the goal (for a money goal that is the payout for the item), returns any
+excess to Spending, and may be done before it is fully funded (the balance is used). **Cancel** returns the whole balance to Spending.
+**Links:** http(s) only, up to 500 characters, stored as plain text and shown as the site name; they are never fetched or previewed.
+
+**Rewards.** A kid can request only if Spending (plus a reached goal saved for that reward) covers the price. Nothing is taken at
+request time. On **approve**, the price comes out as `reward_redemption` entries: from the reward's reached goal first (which becomes
+`used`), then Spending; approval is refused with a clear message if the balance no longer covers it. Deny and cancel take nothing.
+Approved rewards stay on the approvals list until marked delivered.
+
+**Challenges** (tables from migration `004`). A chore instance counts toward a period if it belongs to one of the challenge's chore
+groups, was **reported inside the window** (start inclusive, end exclusive) and is **approved** (approval may come after the window
+closes); forfeits are ignored; no ledger entries. Windows: **once** (start/end date-time), **daily** (start/end time on chosen weekdays;
+a daily window must end the same day), **weekly** (start weekday+time to end weekday+time; the same weekday and time is a full week).
+Periods are created on demand on every authenticated request (windows that have started and hadn't already ended when the challenge was
+made; a window that was open when it was created counts everything reported inside it) and evaluated then: **earned** as soon as the
+count reaches the target; **missed** once the window has closed and every chore reported inside it has been decided (approved or sent
+back). A parent can mark any period earned or missed, and marks earned ones delivered.
+
+**Currencies a kid sees.** There is no per-kid currency setting. `Money\Currencies` says a kid uses a currency if they have an active
+chore, any ledger entry, a live or used goal, or a non-zero Savings/Giving setting in it. A kid's screens show only those currencies,
+and Savings/Giving rows only once a percentage is set or something is in them.
+
+**Approvals list.** Items: `chore`, `goal_request`, `goal_change`, `goal_reached`, `reward_request`, `reward_delivery`,
+`challenge_earned` (all counted in the badge) and `day_waiting` (a summary of already-counted chores, not counted again).
+
+**Activity list.** Built on request from the last 30 days of ledger entries, grouped by `batch_id` (older entries without one are
+grouped by type, day and time) and worded from `action`; nothing is stored as text.
+

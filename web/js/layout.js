@@ -6,7 +6,7 @@ export function parentShell(active, ...content) {
   const link = (path, label, extra) => h('a', { href: '#' + path, class: active === path ? 'active' : '' }, label, extra);
   const nav = h('nav', { class: 'nav' },
     link('/home', 'Home', h('span', { class: 'count', id: 'approval-badge', hidden: true })),
-    link('/chores', 'Chores'), link('/kids', 'Kids'), link('/settings', 'Settings'));
+    link('/chores', 'Chores'), link('/kids', 'Kids'), link('/rewards', 'Rewards'), link('/challenges', 'Challenges'), link('/settings', 'Settings'));
   refreshBadge();
   return [
     h('div', { class: 'topbar' },

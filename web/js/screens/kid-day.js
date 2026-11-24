@@ -31,7 +31,9 @@ export async function render(root, kidId) {
     mount(earnedBox,
       h('div', { class: 'balance' }, h('span', {}, 'Earned today'), h('strong', {}, balanceText(data.earned_today))),
       h('div', { class: 'balance' }, h('span', {}, 'Spending'), h('strong', {}, balanceText(data.spending))),
-      h('p', { style: 'margin:8px 0 0' }, h('a', { class: 'btn secondary small', href: `#/history/${kidId}` }, 'History, back-fill & fixes')));
+      h('div', { class: 'actions-wrap' },
+        h('a', { class: 'btn secondary small', href: `#/history/${kidId}` }, 'History, back-fill & fixes'),
+        h('a', { class: 'btn secondary small', href: `#/money/${kidId}` }, 'Money & goals')));
     paint(data);
   }
 

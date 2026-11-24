@@ -56,14 +56,15 @@ final class SeedGuardTest extends ApiTestCase
         $this->assertSame(200, $status);
     }
 
-    public function testSeedCreatesTheDemoChoresForBothKids(): void
+    public function testSeedCreatesTheDemoChoresMoneyAndExamples(): void
     {
         $result = (new Seeder($this->pdo, test_config(), $this->clock))->seed();
-        $kid = $this->kidToken($result['kid_links']['Alex']);
-        $day = $this->kidList($kid);
+        $alex = $this->kidToken($result['kid_links']['Alex']);
+        $sam = $this->kidToken($result['kid_links']['Sam']);
+        $day = $this->kidList($alex);
         $this->assertSame(
-            ['Brush teeth / Morning', 'Brush teeth / Evening', 'Feed the fish', 'Make bed', 'Rake the front yard', 'Walk the dog / Morning', 'Walk the dog / Evening'],
-            $this->titles($day)
+            ['Brush teeth / Morning', 'Brush teeth / Evening', 'Feed the fish', 'Get dressed', 'Make bed', 'Pack backpack', 'Rake the front yard', 'Walk the dog / Morning', 'Walk the dog / Evening'],
+            array_values(array_filter($this->titles($day), fn ($t) => true))
         );
         $byTitle = [];
         foreach ($day['chores'] as $c) {
@@ -77,8 +78,29 @@ final class SeedGuardTest extends ApiTestCase
         $this->assertTrue($byTitle['Feed the fish']['auto_approve']);
         $this->assertSame('Sunday', date('l', strtotime($byTitle['Rake the front yard']['due_date'])));
         $this->assertGreaterThanOrEqual($day['today'], $byTitle['Rake the front yard']['due_date']);
-        $this->assertSame(5, $this->countRows('SELECT COUNT(DISTINCT group_id) FROM chores'));
+        $this->assertSame(7, $this->countRows('SELECT COUNT(DISTINCT group_id) FROM chores'));
         $this->assertSame(10, $this->countRows('SELECT COUNT(*) FROM chores'));
+        $this->assertSame(1, $this->countRows("SELECT COUNT(*) FROM chores WHERE title = 'Walk the dog'"), 'money jobs are Alex\'s only');
+
+        // Sam: points only, no goals or challenges.
+        $samTitles = $this->titles($this->kidList($sam));
+        $this->assertSame(['Brush teeth / Morning', 'Brush teeth / Evening', 'Feed the fish', 'Make bed'], $samTitles);
+
+        // Required: Make bed and both Brush teeth slots.
+        $this->assertSame(['Brush teeth', 'Make bed'], $this->pdo->query("SELECT DISTINCT title FROM chores WHERE is_required = 1 ORDER BY title")->fetchAll(\PDO::FETCH_COLUMN));
+
+        // Money setup.
+        $this->assertSame('plus', $this->pdo->query('SELECT plan FROM households')->fetchColumn(), 'a plan that allows several goals');
+        $this->assertSame([[10, 10]], array_map(fn ($r) => [(int) $r['savings_pct'], (int) $r['giving_pct']], $this->pdo->query("SELECT savings_pct, giving_pct FROM bucket_settings WHERE currency = 'money'")->fetchAll()));
+        $this->assertSame(1, $this->countRows('SELECT COUNT(*) FROM bucket_settings'), 'no settings for points, none for Sam');
+        $this->assertSame([['Ice cream trip', 200], ['Pick the movie', 50], ['Stay up 30 minutes late', 100]],
+            array_map(fn ($r) => [$r['name'], (int) $r['cost']], $this->pdo->query("SELECT name, cost FROM rewards ORDER BY name")->fetchAll()));
+        $goals = $this->pdo->query("SELECT name, currency, target, status, link FROM goals ORDER BY id")->fetchAll();
+        $this->assertSame([['New game', 'money', 2000, 'active', null], ['Baseball bat', 'money', 4500, 'active', 'https://www.dickssportinggoods.com/p/example-baseball-bat']],
+            array_map(fn ($g) => [$g['name'], $g['currency'], (int) $g['target'], $g['status'], $g['link']], $goals));
+        $challenges = $this->pdo->query('SELECT reward_name, repeat_type, target_count FROM challenges ORDER BY id')->fetchAll();
+        $this->assertSame([['Open gym', 'weekly', 7], ['30 minutes of TV after school', 'daily', 3]], array_map(fn ($c) => [$c['reward_name'], $c['repeat_type'], (int) $c['target_count']], $challenges));
+        $this->assertSame(3, $this->countRows('SELECT COUNT(*) FROM challenge_chores WHERE challenge_id = 2'));
     }
 
     public function testResetWipesDataThenReseeds(): void
@@ -87,7 +109,7 @@ final class SeedGuardTest extends ApiTestCase
         $seeder = new Seeder($this->pdo, test_config(), $this->clock);
         $seeder->reset();
         $this->assertSame(0, (int) $this->pdo->query('SELECT COUNT(*) FROM parents')->fetchColumn());
-        $this->assertSame(6, (int) $this->pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn(), 'migration history kept');
+        $this->assertSame(8, (int) $this->pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn(), 'migration history kept');
         $this->assertTrue($seeder->seed()['created']);
     }
 

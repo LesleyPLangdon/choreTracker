@@ -21,7 +21,7 @@ final class Ledger
 
     /**
      * @param array{chore_instance_id?:int, goal_id?:int, reward_request_id?:int, local_date?:string,
-     *              created_by_type?:string, created_by_id?:int, note?:string} $ref
+     *              created_by_type?:string, created_by_id?:int, note?:string, batch?:string, action?:string} $ref
      */
     public function append(int $householdId, int $kidId, string $currency, string $bucket, string $type, int $amount, array $ref = []): int
     {
@@ -30,15 +30,30 @@ final class Ledger
         }
         $this->pdo->prepare(
             'INSERT INTO ledger_entries (household_id, kid_id, currency, bucket, entry_type, amount, local_date,
-               chore_instance_id, goal_id, reward_request_id, created_by_type, created_by_id, note, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+               chore_instance_id, goal_id, reward_request_id, created_by_type, created_by_id, note, batch_id, action, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         )->execute([
             $householdId, $kidId, $currency, $bucket, $type, $amount, $ref['local_date'] ?? null,
             $ref['chore_instance_id'] ?? null, $ref['goal_id'] ?? null, $ref['reward_request_id'] ?? null,
             $ref['created_by_type'] ?? 'system', $ref['created_by_id'] ?? null, $ref['note'] ?? null,
+            $ref['batch'] ?? null, $ref['action'] ?? null,
             $this->clock->nowSql(),
         ]);
         return (int) $this->pdo->lastInsertId();
+    }
+
+    /** A fresh id to tag the entries of one move together (used to word the activity list). */
+    public function newBatch(): string
+    {
+        return bin2hex(random_bytes(8));
+    }
+
+    /** What a goal currently holds (computed from the ledger, like every balance). */
+    public function goalBalance(int $goalId): int
+    {
+        $stmt = $this->pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM ledger_entries WHERE goal_id = ? AND bucket = 'goal'");
+        $stmt->execute([$goalId]);
+        return (int) $stmt->fetchColumn();
     }
 
     /** Balance of one bucket in one currency (whole points, or cents). */

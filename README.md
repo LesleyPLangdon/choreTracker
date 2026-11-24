@@ -29,6 +29,7 @@ There are two kinds of testing:
 
 **Test sign-ins** (test site only):
 - Parents: `test@example.com` / `Correct-Horse-42` and `parent2@example.com` / `Correct-Horse-42`
+- The demo family: **Alex** uses points *and* money (10% Savings and 10% Giving on money, two goals, a weekly and a daily challenge); **Sam** uses points only. Three rewards, and the household is on a plan that allows several goals at once.
 - Kids: PIN `1234`. Each kid's link is printed by the seed/reset command (`SETUP.md`), and the parent's **Kids** screen can make a fresh one any time with **New link** (for safety, a link can only be shown when it's created).
 
 ### Testing end-of-day rules without waiting for midnight (simulated time)

@@ -7,6 +7,7 @@ use App\Chores\ChoreService;
 use App\Clock;
 use App\Http\ApiException;
 use App\Ledger;
+use App\Money\Buckets;
 use PDO;
 
 /**
@@ -21,7 +22,7 @@ use PDO;
  */
 final class DayRules
 {
-    public function __construct(private PDO $pdo, private Clock $clock, private Ledger $ledger, private ChoreService $chores) {}
+    public function __construct(private PDO $pdo, private Clock $clock, private Ledger $ledger, private ChoreService $chores, private Buckets $buckets) {}
 
     // ---- status ------------------------------------------------------------------------------------
 
@@ -123,8 +124,9 @@ final class DayRules
     // ---- money (the only place pending/spending moves happen) -----------------------------------------
 
     /**
-     * Unlock: the day's pending earnings become spendable. Phase 4 will split Savings/Giving off the top HERE,
-     * before the remainder goes to Spending — keep this the single place that happens.
+     * Unlock: the day's pending earnings leave Pending. The kid's Savings % and Giving % come off the top (each
+     * rounded down to a whole point/cent); the rest — including any rounding — lands in Spending. This is the single
+     * place that split happens, so every route to an unlock (approval, end of day, back-fill, override) splits alike.
      */
     public function moveToSpending(int $householdId, int $kidId, string $day, ?int $parentId = null): void
     {
@@ -132,9 +134,18 @@ final class DayRules
             if ($amount <= 0) {
                 continue;
             }
-            $ref = ['local_date' => $day] + $this->by($parentId);
+            $split = $this->buckets->split($kidId, $currency, $amount);
+            $ref = ['local_date' => $day, 'batch' => $this->ledger->newBatch(), 'action' => 'day_unlock'] + $this->by($parentId);
             $this->ledger->append($householdId, $kidId, $currency, 'pending', 'unlock', -$amount, $ref);
-            $this->ledger->append($householdId, $kidId, $currency, 'spending', 'unlock', $amount, $ref);
+            if ($split['spending'] > 0) {
+                $this->ledger->append($householdId, $kidId, $currency, 'spending', 'unlock', $split['spending'], $ref);
+            }
+            if ($split['savings'] > 0) {
+                $this->ledger->append($householdId, $kidId, $currency, 'savings', 'bucket_split', $split['savings'], $ref);
+            }
+            if ($split['giving'] > 0) {
+                $this->ledger->append($householdId, $kidId, $currency, 'giving', 'bucket_split', $split['giving'], $ref);
+            }
         }
     }
 
@@ -144,7 +155,7 @@ final class DayRules
         foreach ($this->pendingNet($kidId, $day) as $currency => $amount) {
             if ($amount > 0) {
                 $this->ledger->append($householdId, $kidId, $currency, 'pending', 'forfeit', -$amount,
-                    ['local_date' => $day, 'note' => 'Day forfeited'] + $this->by($parentId));
+                    ['local_date' => $day, 'note' => 'Day forfeited', 'action' => 'day_forfeit', 'batch' => $this->ledger->newBatch()] + $this->by($parentId));
             }
         }
     }
@@ -160,29 +171,33 @@ final class DayRules
         foreach ($stmt->fetchAll() as $r) {
             if ((int) $r['total'] < 0) {
                 $this->ledger->append($householdId, $kidId, $r['currency'], 'pending', 'forfeit', -(int) $r['total'],
-                    ['local_date' => $day, 'note' => 'Forfeit reversed'] + $this->by($parentId));
+                    ['local_date' => $day, 'note' => 'Forfeit reversed', 'action' => 'forfeit_reversed', 'batch' => $this->ledger->newBatch()] + $this->by($parentId));
             }
         }
     }
 
-    /** Forfeiting a day that already unlocked takes its money back out of Spending (refused if already spent). */
+    /**
+     * Forfeiting a day that already unlocked takes its money back out of Spending, Savings, and Giving (refused if any
+     * of it has already been spent or moved on).
+     */
     public function clawBackSpending(int $householdId, int $kidId, string $day, int $parentId): void
     {
         $stmt = $this->pdo->prepare(
-            "SELECT currency, SUM(amount) AS total FROM ledger_entries
-             WHERE kid_id = ? AND local_date = ? AND bucket = 'spending' GROUP BY currency"
+            "SELECT currency, bucket, SUM(amount) AS total FROM ledger_entries
+             WHERE kid_id = ? AND local_date = ? AND bucket IN ('spending', 'savings', 'giving') GROUP BY currency, bucket"
         );
         $stmt->execute([$kidId, $day]);
+        $batch = $this->ledger->newBatch();
         foreach ($stmt->fetchAll() as $r) {
             $amount = (int) $r['total'];
             if ($amount <= 0) {
                 continue;
             }
-            if ($this->ledger->balance($kidId, $r['currency'], 'spending') < $amount) {
-                throw new ApiException(409, "That day's earnings have already been spent, so it can't be forfeited.");
+            if ($this->ledger->balance($kidId, $r['currency'], $r['bucket']) < $amount) {
+                throw new ApiException(409, "That day's earnings have already been spent or moved, so it can't be forfeited.");
             }
-            $this->ledger->append($householdId, $kidId, $r['currency'], 'spending', 'forfeit', -$amount,
-                ['local_date' => $day, 'note' => 'Day forfeited'] + $this->by($parentId));
+            $this->ledger->append($householdId, $kidId, $r['currency'], $r['bucket'], 'forfeit', -$amount,
+                ['local_date' => $day, 'note' => 'Day forfeited', 'action' => 'day_forfeit', 'batch' => $batch] + $this->by($parentId));
         }
     }
 

@@ -3,12 +3,9 @@ declare(strict_types=1);
 
 namespace Tests;
 
-use App\Chores\ChoreService;
-use App\Chores\InstanceCreator;
 use App\Database;
-use App\Ledger;
-use App\Rules\DayRules;
 use App\Rules\Settler;
+use App\Services;
 
 /**
  * Base for the Phase 3 tests. The household is created on Monday 2026-11-30 (10:00 AM in New York) so chores made
@@ -55,6 +52,9 @@ abstract class RulesTestCase extends ApiTestCase
         )->fetchAll();
         foreach ($days as $d) {
             $this->assertGreaterThanOrEqual(0, (int) $d['total'], "negative pending on {$d['local_date']}");
+        }
+        foreach ($this->pdo->query("SELECT goal_id, SUM(amount) AS total FROM ledger_entries WHERE bucket = 'goal' GROUP BY goal_id")->fetchAll() as $g) {
+            $this->assertGreaterThanOrEqual(0, (int) $g['total'], "negative balance in goal {$g['goal_id']}");
         }
         parent::tearDown();
     }
@@ -146,9 +146,7 @@ abstract class RulesTestCase extends ApiTestCase
     /** A settler wired to a given connection (to model a second request on its own connection). */
     protected function settlerFor(\PDO $pdo): Settler
     {
-        $chores = new ChoreService($pdo, $this->clock);
-        $ledger = new Ledger($pdo, $this->clock);
-        return new Settler($pdo, $this->clock, $chores, new InstanceCreator($pdo, $this->clock, $chores), new DayRules($pdo, $this->clock, $ledger, $chores));
+        return (new Services($pdo, $this->clock))->settler;
     }
 
     protected function otherConnection(): \PDO

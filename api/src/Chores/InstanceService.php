@@ -390,6 +390,7 @@ final class InstanceService
             'local_date' => $this->earningDay((int) $i['id'], $time),
             'created_by_type' => $parentId !== null ? 'parent' : 'system',
             'created_by_id' => $parentId,
+            'action' => 'earning', 'batch' => $this->ledger->newBatch(),
         ]);
     }
 

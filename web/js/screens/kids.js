@@ -1,6 +1,7 @@
 import { api } from '../api.js';
 import { h, mount, field, errorBox, onSubmit, toast, copyText, appBaseUrl, showError } from '../ui.js';
 import { parentShell } from '../layout.js';
+import { bucketSettingsDialog } from '../money-parts.js';
 
 // Links are only known right after a kid is created or a link is reset (the server keeps just a hash),
 // so we remember them here for the rest of this visit.
@@ -85,7 +86,12 @@ function kidCard(kid, avatars, redraw) {
       h('button', {
         class: 'secondary small',
         onclick: () => editDialog(kid, avatars, redraw),
-      }, 'Edit'));
+      }, 'Edit'),
+      h('button', {
+        class: 'secondary small',
+        onclick: run(() => bucketSettingsDialog(kid.id, kid.nickname)),
+      }, 'Savings & Giving'),
+      h('a', { class: 'btn secondary small', href: `#/money/${kid.id}` }, 'Money & goals'));
   }
   if (kid.locked) {
     actions.push(h('button', {

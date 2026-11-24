@@ -34,7 +34,7 @@ final class SettlementTest extends RulesTestCase
     {
         $this->clock->set('2026-12-03 15:00:00');
         $this->chore(['title' => 'New chore', 'required' => true]); // made on Thursday Dec 3
-        $creator = new \App\Chores\InstanceCreator($this->pdo, $this->clock, new \App\Chores\ChoreService($this->pdo, $this->clock));
+        $creator = (new \App\Services($this->pdo, $this->clock))->creator;
         foreach (['2026-11-20', '2026-12-01', '2026-12-02'] as $day) {
             $creator->ensureDay($this->householdId, $this->kidId, $day);
         }
@@ -57,7 +57,7 @@ final class SettlementTest extends RulesTestCase
         $this->call('PUT', "/chores/$id", ['title' => 'Teeth', 'schedule_type' => 'daily', 'required' => true, 'slots' => [
             ['id' => $slots[0]['id'], 'label' => 'Morning'], ['id' => $slots[1]['id'], 'label' => 'Evening'], ['label' => 'Bedtime'],
         ]], $this->parent);
-        $creator = new \App\Chores\InstanceCreator($this->pdo, $this->clock, new \App\Chores\ChoreService($this->pdo, $this->clock));
+        $creator = (new \App\Services($this->pdo, $this->clock))->creator;
         $creator->ensureDay($this->householdId, $this->kidId, '2026-12-01');
         $this->assertSame(0, $this->countRows("SELECT COUNT(*) FROM chore_instances i JOIN chore_slots s ON s.id = i.slot_id WHERE s.label = 'Bedtime' AND i.local_date < '2026-12-03'"));
     }

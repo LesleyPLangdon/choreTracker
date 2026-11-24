@@ -32,8 +32,34 @@ final class Settler
         private DayRules $rules,
     ) {}
 
-    /** @return int how many days this call settled */
+    /**
+     * Settle every ended day. If it fails, the failure is remembered on the household (parents see a warning on
+     * Home) and the error is rethrown; the next settle that succeeds clears the warning.
+     * @return int how many days this call settled
+     */
     public function settleHousehold(int $householdId): int
+    {
+        try {
+            $settled = $this->run($householdId);
+        } catch (\Throwable $e) {
+            $this->markFailed($householdId);
+            throw $e;
+        }
+        // Everything that has ended is settled (this call or an earlier one): any earlier failure is resolved.
+        $this->pdo->prepare('UPDATE households SET settle_failed_at = NULL WHERE id = ? AND settle_failed_at IS NOT NULL')->execute([$householdId]);
+        return $settled;
+    }
+
+    private function markFailed(int $householdId): void
+    {
+        try {
+            $this->pdo->prepare('UPDATE households SET settle_failed_at = ? WHERE id = ?')->execute([$this->clock->nowSql(), $householdId]);
+        } catch (\Throwable) {
+            // Recording the warning must never hide the original problem.
+        }
+    }
+
+    private function run(int $householdId): int
     {
         $settled = 0;
         while (true) {
