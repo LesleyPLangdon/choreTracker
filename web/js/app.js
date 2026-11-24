@@ -12,6 +12,14 @@ import * as chores from './screens/chores.js';
 import * as choreForm from './screens/chore-form.js';
 import * as kidDay from './screens/kid-day.js';
 import * as historyScreen from './screens/history.js';
+import * as money from './screens/money.js';
+import * as rewards from './screens/rewards.js';
+import * as challenges from './screens/challenges.js';
+import * as challengeForm from './screens/challenge-form.js';
+import * as kidGoals from './screens/kid-goals.js';
+import * as kidRewards from './screens/kid-rewards.js';
+import * as kidChallenges from './screens/kid-challenges.js';
+import * as kidActivity from './screens/kid-activity.js';
 import * as kidPin from './screens/kid-pin.js';
 import * as kidHome from './screens/kid-home.js';
 
@@ -28,8 +36,16 @@ const routes = [
   [/^\/chores\/edit\/(\d+)$/, choreForm, 'parent'],
   [/^\/day\/(\d+)$/, kidDay, 'parent'],
   [/^\/history\/(\d+)$/, historyScreen, 'parent'],
+  [/^\/money\/(\d+)$/, money, 'parent'],
+  [/^\/rewards$/, rewards, 'parent'],
+  [/^\/challenges$/, challenges, 'parent'],
+  [/^\/challenges\/new$/, challengeForm, 'parent'],
   [/^\/k\/([^/]+)$/, kidPin, null],
   [/^\/kid$/, kidHome, 'kid'],
+  [/^\/kid\/goals$/, kidGoals, 'kid'],
+  [/^\/kid\/rewards$/, kidRewards, 'kid'],
+  [/^\/kid\/challenges$/, kidChallenges, 'kid'],
+  [/^\/kid\/activity$/, kidActivity, 'kid'],
 ];
 
 const root = document.getElementById('app');

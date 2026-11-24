@@ -28,8 +28,13 @@ final class MoneyController extends BaseController
         $ctx = $this->parent($r);
         $kidId = $this->kid($ctx['household_id'], (int) $p['id']);
         $summary = $this->services->summary->forKid($ctx['household_id'], $kidId);
+        $kid = $this->pdo->prepare('SELECT id, nickname, avatar FROM kids WHERE id = ?');
+        $kid->execute([$kidId]);
         return new Response(200, [
+            'kid' => $kid->fetch(),
             'summary' => $summary,
+            // Every bucket, for the currencies this kid uses (the parent always sees Savings and Giving, even at zero).
+            'balances' => array_map(fn ($byCurrency) => array_intersect_key($byCurrency, array_flip($summary['currencies'])), $this->services->wallet->balances($kidId)),
             'buckets' => $this->services->buckets->all($kidId),
             'goals' => $this->services->goals->forKid($kidId),
             'can_add_goal' => $this->services->goals->hasRoom($ctx['household_id'], $kidId),

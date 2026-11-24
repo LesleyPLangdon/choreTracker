@@ -201,3 +201,99 @@ export function balanceText(amounts) {
 export function formatSqlMoment(sql) {
   return `${formatDay(sql.slice(0, 10))} · ${formatLocalTime(sql)}`;
 }
+
+// ---- Phase 4 helpers: amounts, progress, links, form dialogs ---------------------------------------------
+
+/** What a person types for an amount -> whole points, or cents for money. Null if it isn't valid. */
+export function parseAmount(text, currency) {
+  const t = String(text).trim();
+  if (currency === 'money') return dollarsToCents(t);
+  return /^\d+$/.test(t) ? Number(t) : null;
+}
+
+/** A cents/points amount back into what a person types: "5" points, "0.50" dollars. */
+export function amountToInput(amount, currency) {
+  return currency === 'money' ? centsToInput(amount) : String(amount);
+}
+
+/** A progress bar: value out of target. */
+export function progress(value, target) {
+  const pct = target > 0 ? Math.max(0, Math.min(100, Math.round((value / target) * 100))) : 0;
+  return h('div', { class: 'progress' + (pct >= 100 ? ' done' : ''), role: 'progressbar', 'aria-valuenow': pct, 'aria-valuemin': 0, 'aria-valuemax': 100 },
+    h('div', { class: 'bar', style: `width:${pct}%` }));
+}
+
+/**
+ * A goal link shown as the site name (e.g. "dickssportinggoods.com"). It opens in a new tab and is never fetched or
+ * previewed by us. Only http/https links ever get here (the server refuses anything else), and we check again.
+ */
+export function siteLink(url, host) {
+  if (!url || !/^https?:\/\//i.test(url)) return null;
+  return h('a', { class: 'sitelink', href: url, target: '_blank', rel: 'noopener noreferrer' }, `🔗 ${host || url}`);
+}
+
+/**
+ * A pop-up form. fields: [{ name, label, type: 'text'|'number'|'select'|'checks'|'datetime-local'|'time', value, placeholder, options: [[value, label]] }].
+ * `onSubmit(values)` runs when the form is sent; if it throws, the message shows in the dialog and it stays open.
+ * Resolves true after a successful submit, false if cancelled.
+ */
+export function formDialog({ title, intro, fields, submitLabel = 'Save', onSubmit }) {
+  return new Promise((resolve) => {
+    const dialog = h('dialog', {});
+    const error = errorBox();
+    let result = false;
+    const controls = fields.map((f) => {
+      if (f.type === 'select') {
+        const el = h('select', { name: f.name }, f.options.map(([v, l]) => h('option', { value: v, selected: String(v) === String(f.value) }, l)));
+        return { f, el, read: () => el.value, node: field(f.label, el) };
+      }
+      if (f.type === 'checks') {
+        const boxes = f.options.map(([v, l]) => h('label', {}, h('input', { type: 'checkbox', value: String(v), checked: (f.value || []).map(String).includes(String(v)), style: 'width:auto' }), ' ', l));
+        return { f, read: () => boxes.map((b) => b.querySelector('input')).filter((i) => i.checked).map((i) => i.value),
+          node: h('div', {}, h('label', {}, f.label), h('div', { class: 'checks' }, boxes), f.hint ? h('p', { class: 'hint', style: 'margin:4px 0 0' }, f.hint) : null) };
+      }
+      const el = h('input', { name: f.name, type: f.type || 'text', value: f.value ?? '', placeholder: f.placeholder || '', autocomplete: 'off', inputmode: f.inputmode, maxlength: f.maxlength });
+      return { f, el, read: () => el.value, node: field(f.label, el) };
+    });
+    const form = h('form', {},
+      h('h2', {}, title), intro ? h('p', { class: 'muted' }, intro) : null,
+      controls.map((c) => c.node), error,
+      h('div', { class: 'row', style: 'margin-top:16px' },
+        h('button', { type: 'submit' }, submitLabel),
+        h('button', { type: 'button', class: 'secondary', onclick: () => dialog.close() }, 'Cancel')));
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      clearError(error);
+      const button = form.querySelector('button[type=submit]');
+      button.disabled = true;
+      try {
+        const values = {};
+        controls.forEach((c) => { values[c.f.name] = c.read(); });
+        await onSubmit(values);
+        result = true;
+        dialog.close();
+      } catch (err) {
+        showError(error, err);
+      } finally {
+        button.disabled = false;
+      }
+    });
+    dialog.append(form);
+    dialog.addEventListener('close', () => { dialog.remove(); resolve(result); });
+    document.body.append(dialog);
+    dialog.showModal();
+    controls.find((c) => c.el)?.el.focus();
+  });
+}
+
+/** '2026-12-04 17:00:00' -> "Fri 5:00 PM" (for deadlines like "by Fri 5:00 PM"). */
+export function formatWhen(sql) {
+  const [y, m, d] = sql.slice(0, 10).split('-').map(Number);
+  return `${new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short' })} ${formatLocalTime(sql)}`;
+}
+
+/** Spending-style text for a map of currency -> amount, only for the currencies given: "12 pts · $4.50". */
+export function amountsText(map) {
+  const parts = Object.entries(map).map(([currency, amount]) => formatValue(amount, currency));
+  return parts.length ? parts.join(' · ') : '';
+}

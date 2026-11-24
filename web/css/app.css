@@ -148,3 +148,25 @@ dialog::backdrop { background: rgba(20, 28, 45, .5); }
 .history-day:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
 .event { font-size: .85rem; color: var(--muted); margin: 4px 0; }
 .stack-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+
+/* ---- Phase 4: money ---- */
+.progress { height: 12px; background: #e5eaf4; border-radius: 99px; overflow: hidden; margin: 6px 0; }
+.progress .bar { height: 100%; background: var(--primary); border-radius: 99px; transition: width .3s; }
+.progress.done .bar { background: var(--ok); }
+.row-between { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.linkrow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.linkrow a { flex: 1; min-width: 120px; }
+.goalcard { border-top: 1px solid var(--line); padding: 12px 0; }
+.goalcard:first-of-type { border-top: 0; padding-top: 0; }
+.goalcard .name { font-weight: 700; }
+.sitelink { font-size: .9rem; word-break: break-all; }
+.actions-wrap { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.bucket-row { display: flex; justify-content: space-between; padding: 6px 0; border-top: 1px solid var(--line); }
+.bucket-row:first-child { border-top: 0; }
+.kv { color: var(--muted); }
+.activity { padding: 8px 0; border-top: 1px solid var(--line); font-size: .95rem; }
+.activity:first-child { border-top: 0; }
+.activity .when { color: var(--muted); font-size: .8rem; }
+dialog form label { margin-top: 10px; }
+dialog .checks { display: flex; flex-wrap: wrap; gap: 6px; }
+dialog .checks label { font-weight: 600; margin: 0; }

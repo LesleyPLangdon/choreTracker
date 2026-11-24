@@ -2,6 +2,7 @@ import { api } from '../api.js';
 import { h, mount, errorBox, showError, clearError, formatValue, formatLocalTime, formatDay, balanceText } from '../ui.js';
 import { parentShell } from '../layout.js';
 import { approvalButtons } from '../chore-parts.js';
+import { approvalItem } from '../money-parts.js';
 
 export async function render(root) {
   const me = await api('GET', '/me', undefined, { as: 'parent' });
@@ -26,7 +27,7 @@ export async function render(root) {
     mount(approvalsBox, 
       h('div', { class: 'top-actions' }, h('h2', { style: 'margin:0' }, 'Needs your approval'), refreshButton),
       data.items.length
-        ? data.items.map((item) => item.type === 'day_waiting' ? dayRow(item) : h('div', { class: 'chore' },
+        ? data.items.map((item) => item.type === 'day_waiting' ? dayRow(item) : item.type !== 'chore' ? approvalItem(item, load, (e) => showError(error, e)) : h('div', { class: 'chore' },
             h('div', { class: 'avatar', style: 'width:40px;height:40px;font-size:1.4rem' }, item.kid.avatar),
             h('div', { class: 'grow' },
               h('div', { class: 'title' }, item.title, item.slot_label ? h('span', { class: 'muted' }, ` · ${item.slot_label}`) : null),

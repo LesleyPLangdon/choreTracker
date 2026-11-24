@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { h, mount, field, errorBox, showError, clearError, toast, askNote, balanceText, dollarsToCents, formatDay, formatSqlMoment } from '../ui.js';
+import { h, mount, errorBox, showError, clearError, toast, askNote, balanceText, formatDay, formatSqlMoment } from '../ui.js';
 import { parentShell } from '../layout.js';
 import { choreTitle, choreTags } from '../chore-parts.js';
 
@@ -36,42 +36,10 @@ export async function render(root, kidId) {
   };
 
   function paintBalance(data) {
-    const adjustError = errorBox();
-    const currency = h('select', {}, h('option', { value: 'points' }, 'Points'), h('option', { value: 'money' }, 'Money ($)'));
-    const amount = h('input', { inputmode: 'decimal', placeholder: '5 or -5', autocomplete: 'off', 'aria-label': 'Amount' });
-    const note = h('input', { maxlength: 200, placeholder: 'Why? (required)', autocomplete: 'off', 'aria-label': 'Note' });
-    const form = h('form', {},
-      h('div', { class: 'inline' }, currency, amount),
-      field('Note', note),
-      adjustError,
-      h('button', { type: 'submit', class: 'block secondary' }, 'Adjust Spending'));
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      clearError(adjustError);
-      try {
-        const text = amount.value.trim();
-        const negative = text.startsWith('-');
-        const unsigned = text.replace(/^[+-]/, '');
-        let value;
-        if (currency.value === 'points') {
-          if (!/^\d+$/.test(unsigned)) throw new Error('Enter a whole number of points, like 5 or -5.');
-          value = Number(unsigned);
-        } else {
-          value = dollarsToCents(unsigned);
-          if (value === null) throw new Error('Enter dollars like 1.50 or -1.50.');
-        }
-        await api('POST', `/kids/${kidId}/adjust`, { currency: currency.value, amount: negative ? -value : value, note: note.value }, { as: 'parent' });
-        toast('Spending adjusted');
-        await reload();
-      } catch (err) { showError(adjustError, err); }
-    });
     mount(balanceBox,
       h('div', { class: 'balance' }, h('span', {}, 'Spending'), h('strong', {}, balanceText(data.spending))),
-      data.adjustments.length
-        ? h('div', { class: 'event' }, 'Recent adjustments: ' + data.adjustments.slice(0, 3).map((a) =>
-            `${a.amount > 0 ? '+' : '−'}${a.currency === 'money' ? '$' + (Math.abs(a.amount) / 100).toFixed(2) : Math.abs(a.amount) + ' pts'} “${a.note}” (${a.by}, ${formatSqlMoment(a.at_local)})`).join('; '))
-        : null,
-      h('details', {}, h('summary', {}, 'Adjust balance'), form));
+      h('p', { class: 'hint', style: 'margin:6px 0' }, 'Payouts, Savings, Giving, goals, and balance adjustments are on the Money screen.'),
+      h('a', { class: 'btn secondary small', href: `#/money/${kidId}` }, 'Money & goals'));
   }
 
   function dayCard(d, today) {

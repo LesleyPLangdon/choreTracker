@@ -1,5 +1,5 @@
 import { api, session } from '../api.js';
-import { h, mount, errorBox, showError, clearError, balanceText, formatClock, formatDay } from '../ui.js';
+import { h, mount, errorBox, showError, clearError, balanceText, formatClock, formatDay, formatValue, progress, amountsText } from '../ui.js';
 import { choreTitle, choreTags } from '../chore-parts.js';
 
 /** The kid's day: lock status, today's chores, Done / Undo, what they've earned, and their Spending balance. */
@@ -9,6 +9,8 @@ export async function render(root) {
   const noticeBox = h('div', {});
   const statusBox = h('div', { class: 'card daybox' });
   const moneyBox = h('div', { class: 'card' });
+  const goalsBox = h('div', {});
+  const linksBox = h('div', { class: 'linkrow' });
   const listBox = h('div', { class: 'card' });
   const refreshButton = h('button', { class: 'secondary small', onclick: () => load() }, '↻ Refresh');
 
@@ -29,9 +31,7 @@ export async function render(root) {
       h('h1', {}, `Hi, ${data.kid.nickname}!`));
     paintNotices(data);
     paintStatus(data);
-    mount(moneyBox,
-      h('div', { class: 'balance' }, h('span', {}, 'Earned today'), h('strong', {}, balanceText(data.earned_today))),
-      h('div', { class: 'balance' }, h('span', {}, 'Spending'), h('strong', {}, balanceText(data.spending))));
+    paintMoney(data.summary, data.earned_today);
     paintList(data);
   }
 
@@ -49,6 +49,25 @@ export async function render(root) {
           h('span', {}, `${dayName(n.date, data.today)}'s earnings didn't unlock. Today is a fresh start!`),
           h('button', { class: 'small secondary', onclick: async () => { await api('POST', `/kid/days/${n.date}/ack`, {}, { as: 'kid' }); await load(); } }, 'OK'))
       : h('div', { class: 'notice' }, `${dayName(n.date, data.today)}'s earnings are waiting for a parent to check.`)));
+  }
+
+  // Spending, then the goal bars, then Savings and Giving (read-only). Only the currencies this kid uses.
+  function paintMoney(sum, earned) {
+    const used = Object.fromEntries(sum.currencies.map((c) => [c, earned[c] || 0]));
+    mount(moneyBox,
+      sum.currencies.length ? h('div', { class: 'balance' }, h('span', {}, 'Earned today'), h('strong', {}, amountsText(used))) : null,
+      h('div', { class: 'balance' }, h('span', {}, 'Spending'), h('strong', {}, amountsText(sum.spending) || '0')),
+      Object.keys(sum.savings).length ? h('div', { class: 'balance' }, h('span', { class: 'kv' }, 'Savings'), h('strong', {}, amountsText(sum.savings))) : null,
+      Object.keys(sum.giving).length ? h('div', { class: 'balance' }, h('span', { class: 'kv' }, 'Giving'), h('strong', {}, amountsText(sum.giving))) : null);
+    const goals = sum.goals.filter((g) => g.status !== 'requested');
+    mount(goalsBox, goals.length ? h('div', { class: 'card' }, goals.map((g) => h('div', { style: 'margin-bottom:6px' },
+      h('div', { class: 'row-between' }, h('span', { style: 'font-weight:700' }, `🎯 ${g.name}`), h('span', { class: 'muted' }, `${formatValue(g.balance, g.currency)} of ${formatValue(g.target, g.currency)}`)),
+      progress(g.balance, g.target)))) : null);
+    mount(linksBox,
+      h('a', { class: 'btn secondary small', href: '#/kid/goals' }, '🎯 Goals'),
+      sum.has_rewards ? h('a', { class: 'btn secondary small', href: '#/kid/rewards' }, '🎁 Rewards') : null,
+      sum.has_challenges ? h('a', { class: 'btn secondary small', href: '#/kid/challenges' }, '🏆 Challenges') : null,
+      h('a', { class: 'btn secondary small', href: '#/kid/activity' }, '📒 Activity'));
   }
 
   function paintStatus(data) {
@@ -97,7 +116,7 @@ export async function render(root) {
 
   mount(root,
     h('div', { class: 'top-actions' }, h('span', {}), refreshButton),
-    header, noticeBox, error, statusBox, moneyBox, listBox,
+    header, noticeBox, error, statusBox, moneyBox, goalsBox, linksBox, listBox,
     h('p', { class: 'center' }, h('button', {
       class: 'link',
       onclick: async () => {
