@@ -166,7 +166,7 @@
 - **A parent can override anything**, always (approvals, forfeits, missed chores, late flags, balances, goals, rewards, challenges).
 
 ## 11. Notifications
-- **No push notifications until the phone-app conversion.**
+- **No push notifications in v1.** When they come, web push for the installed web app may cover it without a store app (see 14).
 - v1 uses an in-app "needs your approval" list / badge for parents (approvals, goal requests, reward requests, goals reached, challenges earned).
 
 ## 12. Themes & age range
@@ -183,9 +183,14 @@
 - Existing tier names from her other apps (Free → Plus → Plenty) may or may not carry over.
 
 ## 14. Extras & business (planning after Phase 4)
+- **Web first; app stores not decided (Nov 24).** Lesley isn't sold on a store app; the web must stay central. Plan: an installable web app (PWA) is the primary way onto phones — same site, no app store.
+  - **Installing:** on Android and desktop Chrome/Edge, the app shows its own **Install** button (one tap, then the browser's confirm). On iPhone, Apple doesn't let a site install itself; the app shows a short visual guide (Share → Add to Home Screen) only on iPhone, only in the browser, and hides it once installed. Since iOS 26, home-screen sites open as web apps by default.
+  - **A kid's icon should open straight to that kid's PIN screen** (install from the kid's link). Test on a real iPhone.
+  - **Notifications don't require a store app:** iPhone supports web push for home-screen web apps (iOS 16.4+). Revisit when notifications come up.
+  - A store app (e.g., Capacitor wrapper) stays possible later for discovery; the API-first design keeps that door open.
 - **Gamification (Nov 24):** avatars the kid can **earn or buy skins for**, and/or **play games with**. Certainly a paid feature; Lesley wants to start on it soon.
 - **Sites:** keep the current Bluehost test site as **Lesley's family's own site** (also used to try improvements); make a **new site for distribution**.
-- **Name (chosen Nov 24): First Mate**, with a subtitle that includes "chore" and says it's collaborative (subtitle not final).
+- **Name (chosen Nov 24): First Mate.** Working subtitle: **"Chores you steer together"** (fits the App Store's 30-character limit).
   - Why: the parent is captain (sets the course, can override anything); the kid is first mate (real responsibility, steers their own day, more of the wheel over time). Ties to the Staying at the Helm philosophy: "Being in the loop means you check. Being at the helm means you decide."
   - Candidate tagline: "You set the course. They learn to steer." Earlier candidate: "Earn it, then unlock it."
   - **Gamification fits the name:** avatar as a crew member, skins as uniforms and gear, ranks that grow with responsibility (Deckhand → Able Seaman → First Mate), challenges as voyages, goals as treasure. This should shape the Phase 5 visual theme.
