@@ -29,10 +29,13 @@ Points and money work identically in the code, but families use them differently
 
 ## 3. Goals — saving for something specific
 Goals are the difference between **long-term savings** (the Savings bucket) and **saving for something specific**.
-- **Kid creates a goal** (name, currency, target). It goes to the parent's approvals list. Parent approves or denies (optional note). Parents can also create a goal for a kid directly (already approved).
+- **Kid creates a goal** (name, currency, target, and an optional **link** to the item, e.g., the baseball bat they picked out online). It goes to the parent's approvals list. Parent approves or denies (optional note). Parents can also create a goal for a kid directly (already approved).
 - **One active goal per kid on the free plan** (enforce by `households.plan`; another plan allows several). Show a friendly message if a free kid tries to start a second one.
 - **Kid moves money from Spending into the goal** when they choose (`goal` bucket, linked by `goal_id`). Any amount up to their Spending balance. Show a progress bar.
 - **Kid can move money back** from a goal into Spending. It's their money; the parent can see every move in the activity list.
+- **Kid can move money directly between goals** (same currency only), without going through Spending first. Also visible in the activity list.
+- **Links:** optional, on any goal (kid- or parent-created). The parent sees the link in the approval request and can edit or remove it before approving, and edit it any time after. Accept only `http://` and `https://` URLs (max ~500 characters); store it as plain text; show it as the site name (e.g., "dickssportinggoods.com") that opens in a new tab with `rel="noopener noreferrer"`. Never fetch the page, preview it, or embed images from it. If a kid edits the link on an approved goal, it goes back to the parent for approval (the goal itself stays active).
+- **Editing a goal:** the kid can change the name or link; changing the target price on an approved goal needs parent approval. Parents can edit anything.
 - **Goal reached:** when the goal's balance reaches the target, mark it `reached` and put it in the parent's approvals list ("Ava reached her goal: new game").
 - **Using the goal:** the parent marks it **Used** (bought / given). That takes the goal's balance out (`goal_transfer` out). For a money goal, this is the payout for that item. If there's money left over beyond the target, it goes back to Spending.
 - **Cancel a goal** (kid or parent): its balance returns to Spending.
@@ -75,7 +78,7 @@ Keep it simple and readable for a young kid and an older one:
 - Kid 1 uses points and money: 10% Savings and 10% Giving on money; 0% on points.
 - Kid 2 uses points only.
 - Rewards: "Pick the movie" (50 points), "Stay up 30 minutes late" (100 points), "Ice cream trip" (200 points).
-- An approved goal for kid 1: "New game", $20.00.
+- Approved goals for kid 1: "New game", $20.00, and "Baseball bat", $45.00, with an example link. (Set the test household's plan so it allows more than one active goal, so moving between goals can be tested.)
 - The two example challenges above, for kid 1 (add "Get dressed" and "Pack backpack" weekday chores if needed).
 
 ## Tests (PHPUnit) — use the shared clock
@@ -84,7 +87,7 @@ Keep it simple and readable for a young kid and an older one:
 - Unlocking a forfeited day later (back-fill/override) splits correctly; nothing moves twice.
 - Mark transferred / Mark given; adjustments in any bucket never go below zero.
 - Payout: money only, can't exceed Spending.
-- Goals: request/approve/deny; free plan limits one active goal; move in and back out; reached; mark used (with leftover returned); cancel returns balance; used before fully funded.
+- Goals: request/approve/deny; links (only http/https accepted, shown as the site name, a kid's link change needs approval); moving money between goals (same currency only, never below zero); free plan limits one active goal; move in and back out; reached; mark used (with leftover returned); cancel returns balance; used before fully funded.
 - Rewards: visibility per kid; request only if affordable; approve takes from Spending; approval blocked if the balance dropped; deny; cancel; delivered.
 - "Save for this": creates a linked goal; requesting when reached pays from the goal first.
 - Challenges: once, daily, and weekly windows, including weekday-only; counts only reported-in-window and approved; approval after the window counts; forfeited-day completions count; at most 2 a day via slots; missed vs earned; override; periods created on demand idempotently.
@@ -98,5 +101,5 @@ Keep it simple and readable for a young kid and an older one:
 - Commit in logical steps, push, and open a pull request into `main`.
 
 ## How to work with me
-- Start with a short plan, including any new tables or columns.
+- Start with a short plan, including any new tables or columns (goals need a link column and a way to hold a pending link or target change).
 - Ask before deviating from the decisions or this prompt; flag anything ambiguous instead of guessing.

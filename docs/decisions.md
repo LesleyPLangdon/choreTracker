@@ -84,6 +84,8 @@
 - The kid can move money back from a goal into Spending (visible in the activity list). Cancelling a goal returns its balance to Spending.
 - When a goal is reached, the parent marks it **Used**; that takes the goal's balance out (any extra goes back to Spending). A parent can mark it used early (override).
 - Parents can also create a goal for a kid directly.
+- **Goal links (Nov 24):** a goal can have an optional link to the item (e.g., the baseball bat the kid picked out) along with the price. The parent sees it when approving; a kid's later change to the link or price goes back to the parent. Links open in a new tab and are never previewed.
+- **Moving between goals (Nov 24):** the kid can move money directly from one goal to another (same currency). With one active goal on the free plan, this matters on plans that allow several.
 
 ## 5. Rewards (v1 — base feature)
 - **Parent creates rewards** the kid can earn, each with a name and a value.
