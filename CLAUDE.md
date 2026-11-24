@@ -25,9 +25,13 @@ with you; `docs/schema.md` documents the database; `docs/prompts/` has one promp
   DB), no PHP sessions/cookies, so a Capacitor phone app can reuse everything.
 - **The ledger is append-only and balances are computed.** Never `UPDATE`/`DELETE` `ledger_entries`; correct with an
   offsetting entry. Never store a balance as an editable number. Use `App\Ledger`.
-- **Money moves between buckets only in `App\Rules\DayRules`** (unlock, forfeit, reverse, claw back) and only as
-  idempotent ledger entries computed from the ledger's current sums. Phase 4's Savings/Giving split goes in
-  `DayRules::moveToSpending`. Every authenticated request first runs `App\Rules\Settler` (end-of-day settlement).
+- **Moves out of Pending (unlock, the Savings/Giving split, forfeit, reverse, claw back) happen only in `App\Rules\DayRules`**,
+  as idempotent ledger entries computed from the ledger's current sums. Everything a parent or kid does with settled money
+  (payouts, transfers, adjustments, goal moves, rewards) lives in `Money\Wallet`, `Money\GoalService` and `Money\RewardService`, which
+  lock the kid (`Money\Locks::kid`), check the balance, then append entries; nothing ever goes below zero. Every authenticated request
+  first runs `App\Rules\Settler` (end-of-day settlement) and refreshes challenge periods.
+- **Services are built once in `App\Services`** (the API and the tests both use it); add new services there.
+- **A currency shows on a kid's screens only if the kid uses it** (`Money\Currencies`): never an empty "$0.00" row for a points-only kid.
 - **All time logic goes through `App\Clock` and `App\HouseholdTime`.** No `time()`, `date()`, `new DateTime('now')`,
   or SQL `NOW()` elsewhere. Store UTC; compute "today" and household-local times with `HouseholdTime`, so tests (and
   the test site's `simulated_now`) can simulate other moments.
@@ -55,29 +59,26 @@ On the server, only `web/` is public; `api/`, `db/`, `scripts/`, and `config.php
 ## Where we left off
 *(Update this at the end of every session.)*
 
-**Phases 1 and 2** are built, merged, and deployed to the Bluehost test site (real PHP 8.4 + Percona 5.7).
-Notes: a kid's link is shown only when created or reset (only its hash is stored), so parents use "New link" for a
-fresh one. `scripts/deploy-cpanel.sh` never overwrites an existing web-root `.htaccess` (cPanel keeps the PHP version
-there — overwriting it once dropped the site to an old PHP).
+**Phases 1-3** are built, merged, and deployed to the Bluehost test site (real PHP 8.4 + Percona 5.7). Notes: a kid's link is
+shown only when created or reset (only its hash is stored). `scripts/deploy-cpanel.sh` never overwrites an existing web-root
+`.htaccess` (cPanel keeps the PHP version there). A failed settle is logged and skipped, sets `households.settle_failed_at`
+(migration `007`), and parents see "Some past days couldn't be updated — tell Lesley" on Home until a later settle succeeds.
 
-**Phase 3 (Rules) is built and tested in the cloud environment, but NOT yet deployed to the test site.**
-Done: migration `006`; required chores (every slot required; `required_from`/`required_for_date` make changes start the
-next day; required one-time chores gate only their due date); `Rules\DayRules` (day status + all pending/spending/forfeit
-moves, idempotent); `Rules\Settler` (on-demand settlement via `households.settled_through`, runs on every authenticated
-request through `Auth::onAuthenticated`; creates instances for days nobody opened; missed/carry-over with no stacking);
-`Chores\InstanceCreator`; `Rules\Overrides` (back-fill, unlock, forfeit, undo approval, clear late, balance adjust,
-7-day history); `scripts/settle.php`; `/clock` + the yellow "Simulated time" banner (front end takes time from the API);
-`simulated_now` now accepts a local time with a zone name; seed makes Make bed and Brush teeth required; front end: Required
-checkbox, kid lock/waiting/unlocked status + Spending + overdue + forfeit note (dismiss with OK), parent approvals show
-waiting days, parent History screen (`#/history/<kid>`) with back-fill/overrides/adjust. 147 PHPUnit tests pass (MariaDB
-10.11 + PHP 8.3 in the cloud; not yet run on MySQL 5.7/PHP 8.4).
-**The test site needs migration 006** (`php scripts/migrate.php`); run `php scripts/reset.php` to get the required demo chores.
-Decisions made where the prompt was silent (flagged to Lesley): a required chore finished after its day ended doesn't
-revive a forfeited day (back-fill or an override does); manual unlock/forfeit overrides are sticky; waiting-day items in
-the approvals list aren't counted in the badge; history shows today + the previous 7 days (never before the household
-existed); back-fill sets `reported_at` to when the parent recorded it; balance adjustments require a note; the forfeit
-note has an OK button; a day that already unlocked stays unlocked even if an approval is later undone.
-A settle that fails is logged and skipped (the request still works). It sets `households.settle_failed_at` (migration `007`), so
-parents see "Some past days couldn't be updated — tell Lesley" on Home until a later settle succeeds (tested in `SettleWarningTest`).
-**The test site also needs migration 007** (`php scripts/migrate.php`).
-Next: Phase 4 (Money flow) — buckets, Spending purchases, goals, rewards, challenges.
+**Phase 4 (Money flow) is built and tested in the cloud environment, but NOT yet deployed to the test site.**
+Done: migration `008`; `App\Services` container; Savings/Giving split in `DayRules::moveToSpending` (with reversals across all
+buckets); `Money\Buckets`, `Wallet` (payout, mark transferred/given, adjust any bucket), `GoalService` (requests, links, pending
+changes, moves in/out/between, reached, used, cancel, plan limit via `Plans`), `RewardService` (visibility, request/approve/deny/cancel/
+delivered, "Save for this" and pay-from-goal-first), `ChallengeService` (once/daily/weekly windows, on-demand periods, counting, overrides),
+`Activity` (plain-language list from the ledger), `Currencies`/`Summary` (per-kid currency visibility), `Approvals\ApprovalList` (all item
+types and the badge). Front end: kid home (day status, Spending, goal bars, read-only Savings/Giving, links), kid Goals / Rewards /
+Challenges / Activity screens; parent Money screen per kid, Rewards, Challenges (+ form), approval items for every new type, Savings &
+Giving % on the Kids screen. Seed: Alex uses points and money (10% Savings, 10% Giving on money), Sam points only, three rewards, two goals
+(one with a link), the two example challenges; the demo household is on the `plus` plan so several goals can be tried. 234 PHPUnit tests
+pass (MariaDB 10.11 + PHP 8.3 in the cloud; not yet run on MySQL 5.7/PHP 8.4).
+**The test site needs migration 008** (`php scripts/migrate.php`); run `php scripts/reset.php` to get the Phase 4 demo data (it wipes the
+demo data and prints new kid links).
+Decisions made where the prompt was silent (flagged to Lesley): a challenge window that was already open when the challenge was created
+counts everything reported inside it; a daily window must end the same day; challenges can be created and removed but not edited; the
+split is applied to each unlock and rounds down; the kid's Goals link always shows and Rewards/Challenges only if there are any; a goal
+or reward-request denial keeps the kid's money untouched; a reached goal returns to active if money is taken out of it.
+Next: Phase 5 (Polish) — home-screen install (PWA) and the visual theme. Gamification (earned/bought avatars, games) is planned separately.
