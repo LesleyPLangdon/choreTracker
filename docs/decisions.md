@@ -23,6 +23,7 @@
   - Lesley's hands-on testing happens on a **test site on Bluehost** (its own test address and database, demo family only, never real data).
   - The test site **pulls from GitHub through cPanel's Git Version Control**, so there's no manual download/upload.
 - **Public repo:** no secrets in git; settings live in a git-ignored `config.php` on Bluehost.
+- **Where things live (Nov 25):** the claude.ai project holds only this log, to keep new chats light. Phase prompts, README, SETUP, and schema live in the GitHub repo (`docs/prompts/`, etc.). Planning happens in project chats; deployment questions go to a separate chat pointed at `SETUP.md`; Claude Code starts a fresh session per phase or fix.
 - **Repo docs:** `README.md` (how Lesley works), `CLAUDE.md` (working rules for Claude), `SETUP.md` (Bluehost setup and deploy), `docs/schema.md`, `docs/decisions.md`, `docs/prompts/` (one prompt per phase).
 - **Server versions (Bluehost):** PHP 8.4; Percona Server 5.7.44 (MySQL 5.7). Use only MySQL 5.7–compatible SQL (no CTEs, no window functions; CHECK constraints not enforced). No runtime Composer packages (don't assume Composer on the server).
 - **Architecture: API-first.**
